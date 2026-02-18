@@ -4,6 +4,7 @@ import json
 import socket
 import threading
 import time
+import tkinter as tk
 from io import BytesIO, StringIO
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -301,9 +302,12 @@ class SamsungDashboard(ctk.CTk):
         self.devices_scroll.grid(row=6, column=0, sticky="nsew", padx=8, pady=(0, 4))
         self.devices_scroll.grid_columnconfigure(0, weight=1)
 
+        # hidden OptionMenu kept only for API compatibility with _refresh_saved_devices_menu
         self.saved_device_menu = ctk.CTkOptionMenu(
             sidebar, variable=self.selected_device_var,
-            values=["(manual entry)"], command=self._on_selected_device)
+            values=["(manual entry)"], command=self._on_selected_device,
+            width=1, height=1)
+        self.saved_device_menu.grid_remove()
 
         # ════════════════════════════════════════════════════════════════════
         # MAIN AREA – tabview
@@ -804,9 +808,10 @@ class SamsungDashboard(ctk.CTk):
 
     def _action_success(self, action_name: str, result, on_success=None):
         self.status_var.set(f"Status: {action_name} OK")
-        self.log(f"{action_name} succeeded")
         if on_success:
             on_success(result)
+        else:
+            self.log(f"{action_name} succeeded")
 
     def _action_error(self, action_name: str, exc: Exception):
         self.status_var.set(f"Status: {action_name} failed")
@@ -1006,19 +1011,22 @@ class SamsungDashboard(ctk.CTk):
         def _check():
             ip = self.ip_var.get().strip()
             if not ip:
-                self.network_var.set("Network: no IP")
+                self.after(0, lambda: self.network_var.set("Network: no IP"))
+                self.after(0, lambda: self.net_dot.configure(text_color="#e74c3c"))
             else:
                 try:
                     port = int(self.port_var.get().strip())
                     start = time.perf_counter()
                     with socket.create_connection((ip, port), timeout=1.5):
                         elapsed = int((time.perf_counter() - start) * 1000)
-                        self.network_var.set(f"Network: ONLINE ({elapsed} ms)")
+                        self.after(0, lambda: self.network_var.set(f"Network: ONLINE ({elapsed} ms)"))
+                        self.after(0, lambda: self.net_dot.configure(text_color="#2ecc71"))
                 except Exception:
-                    self.network_var.set("Network: OFFLINE")
+                    self.after(0, lambda: self.network_var.set("Network: OFFLINE"))
+                    self.after(0, lambda: self.net_dot.configure(text_color="#e74c3c"))
             self.after(10000, self._schedule_network_check)
 
-        threading.Thread(target=lambda: self.after(0, _check), daemon=True).start()
+        threading.Thread(target=_check, daemon=True).start()
 
     def get_status(self):
         async def _worker(mdc: MDC, display_id: int):
@@ -1100,10 +1108,12 @@ class SamsungDashboard(ctk.CTk):
             return await mdc.screen_capture(display_id)
 
         def _on_success(image_bytes: bytes):
-            # Save to disk
+            # Save to user Documents folder so it works both in dev and as EXE
             ip = self.ip_var.get().strip().replace(".", "_")
             ts = time.strftime("%Y%m%d_%H%M%S")
-            out_path = Path(f"screenshot_{ip}_{ts}.jpg")
+            docs = Path.home() / "Documents" / "SamsungMDC"
+            docs.mkdir(parents=True, exist_ok=True)
+            out_path = docs / f"screenshot_{ip}_{ts}.jpg"
             out_path.write_bytes(image_bytes)
             self.log(f"Screenshot saved: {out_path}")
 
@@ -1124,7 +1134,6 @@ class SamsungDashboard(ctk.CTk):
                 # keep reference so GC doesn't destroy it
                 popup._photo_ref = photo
 
-                import tkinter as tk
                 lbl = tk.Label(popup, image=photo, bg="#0d0d1a")
                 lbl.pack(padx=10, pady=10)
 
