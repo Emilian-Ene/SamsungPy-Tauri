@@ -727,7 +727,7 @@ class SamsungDashboard(ctk.CTk):
                 result = asyncio.run(self._execute_mdc(_worker))
                 self.after(0, lambda: _on_success(result))
             except Exception as exc:
-                self.after(0, lambda: _on_error(exc))
+                self.after(0, lambda exc=exc: _on_error(exc))
 
         threading.Thread(target=_thread, daemon=True).start()
 
@@ -767,7 +767,7 @@ class SamsungDashboard(ctk.CTk):
                 result = asyncio.run(self._execute_mdc(_worker))
                 self.after(0, lambda: _on_success(result))
             except Exception as exc:
-                self.after(0, lambda: _on_error(exc))
+                self.after(0, lambda exc=exc: _on_error(exc))
 
         threading.Thread(target=_thread, daemon=True).start()
 
@@ -802,7 +802,7 @@ class SamsungDashboard(ctk.CTk):
                 result = asyncio.run(self._execute_mdc(worker))
                 self.after(0, lambda: self._action_success(action_name, result, on_success))
             except Exception as exc:
-                self.after(0, lambda: self._action_error(action_name, exc))
+                self.after(0, lambda exc=exc: self._action_error(action_name, exc))
 
         threading.Thread(target=_thread_target, daemon=True).start()
 
