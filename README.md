@@ -82,3 +82,33 @@ Output EXE is created in the Nuitka output folder shown in terminal.
 ## Build Installer (optional)
 
 If you want a setup wizard (`.exe` installer), create the EXE first with Nuitka, then package it with your installer tool of choice (for example Inno Setup).
+
+## Tizen URL Launcher (NowSignage) via Python on laptop
+
+If the URL is configured but nothing appears on screen, use this exact order from MDC:
+
+1. Set launcher mode to URL Launcher.
+2. Set launcher URL.
+3. Force input source to URL Launcher.
+4. Wait 2-5 seconds and read back source/status.
+
+Example async sequence:
+
+```python
+await mdc.launcher_play_via(display_id, ("URL_LAUNCHER",))
+await mdc.launcher_url_address(display_id, ("https://cdn.nowsignage.com/tizen/",))
+await mdc.input_source(display_id, ("URL_LAUNCHER",))
+print(await mdc.input_source(display_id))
+```
+
+If still blank:
+
+- Try `WEB_BROWSER` as source on some firmware:
+
+```python
+await mdc.input_source(display_id, ("WEB_BROWSER",))
+```
+
+- Test with `https://example.com` to confirm browser/network path.
+- Verify panel date/time is correct (TLS/HTTPS can fail silently when time is wrong).
+- Confirm the panel is Samsung Signage/LFD in MDC mode (`1515`), not consumer TV WS mode (`8001/8002`).

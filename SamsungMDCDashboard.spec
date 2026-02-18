@@ -5,7 +5,7 @@ a = Analysis(
     ['launch_dashboard.py'],
     pathex=[],
     binaries=[],
-    datas=[('C:\\Users\\Ionut.Emilian\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\customtkinter', 'customtkinter'), ('C:\\Users\\Ionut.Emilian\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\darkdetect', 'darkdetect')],
+    datas=[('C:/Users/Ionut.Emilian/AppData/Local/Programs/Python/Python313/Lib/site-packages/customtkinter', 'customtkinter'), ('C:/Users/Ionut.Emilian/AppData/Local/Programs/Python/Python313/Lib/site-packages/darkdetect', 'darkdetect')],
     hiddenimports=['customtkinter', 'darkdetect', 'samsung_mdc', 'samsungtvws', 'websocket', 'requests', 'PIL', 'PIL._tkinter_finder'],
     hookspath=[],
     hooksconfig={},

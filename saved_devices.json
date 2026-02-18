@@ -1,109 +1,145 @@
 [
   {
     "ip": "192.168.1.100",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Lobby",
     "description": "Main Entrance Screen"
   },
   {
     "ip": "192.168.1.101",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Lobby",
     "description": "Secondary Entrance Screen"
   },
   {
     "ip": "192.168.1.104",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Room C",
     "description": "Conference Room C"
   },
   {
     "ip": "192.168.1.105",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Cafeteria",
     "description": "Menu Board Left"
   },
   {
     "ip": "192.168.1.106",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Cafeteria",
     "description": "Menu Board Right"
   },
   {
     "ip": "192.168.1.107",
+    "port": 8002,
     "id": 0,
-    "site": "Floor 1",
-    "description": "Hallway Display"
+    "protocol": "SMART_TV_WS",
+    "site": "Home",
+    "description": ""
   },
   {
     "ip": "192.168.1.108",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Floor 2",
     "description": "Hallway Display"
   },
   {
     "ip": "192.168.1.109",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Floor 3",
     "description": "Hallway Display"
   },
   {
     "ip": "192.168.1.110",
+    "port": 1515,
     "id": 1,
+    "protocol": "AUTO",
     "site": "Reception",
     "description": "Reception Desk Screen"
   },
   {
     "ip": "192.168.1.111",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Warehouse",
     "description": "Warehouse Info Panel"
   },
   {
     "ip": "192.168.1.112",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Security",
     "description": "Security Room Monitor"
   },
   {
     "ip": "192.168.1.113",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Server Room",
     "description": "Server Status Board"
   },
   {
     "ip": "192.168.1.114",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "HR Dept",
     "description": "HR Announcements"
   },
   {
     "ip": "192.168.1.115",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "IT Dept",
     "description": "IT Dashboard"
   },
   {
     "ip": "192.168.1.116",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Sales",
     "description": "Sales KPI Board"
   },
   {
     "ip": "192.168.1.117",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Marketing",
     "description": "Marketing Promo Screen"
   },
   {
     "ip": "192.168.1.122",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "sd",
     "description": "sd"
   },
   {
     "ip": "192.168.1.120",
+    "port": 1515,
     "id": 0,
+    "protocol": "AUTO",
     "site": "Parking",
     "description": "Parking Info Screen"
   }

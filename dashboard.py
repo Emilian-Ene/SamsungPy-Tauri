@@ -26,6 +26,7 @@ except ImportError:
     _SMARTTVWS_AVAILABLE = False
 
 SAVED_DEVICES_FILE = Path("saved_devices.json")
+APP_VERSION = "1.0.0"
 PROTOCOL_OPTIONS = ["AUTO", "SIGNAGE_MDC", "SMART_TV_WS"]
 SMART_TV_KEYS = [
     "KEY_HOME",
@@ -347,6 +348,13 @@ class SamsungDashboard(ctk.CTk):
             sidebar, fg_color="transparent", label_text="")
         self.devices_scroll.grid(row=6, column=0, sticky="nsew", padx=8, pady=(0, 4))
         self.devices_scroll.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            sidebar,
+            text=f"Powered by Ionut E Ene (dev mode) • v{APP_VERSION}",
+            text_color="#7fb3d3",
+            font=ctk.CTkFont(size=10),
+        ).grid(row=7, column=0, padx=14, pady=(2, 10), sticky="w")
 
         # hidden OptionMenu kept only for API compatibility with _refresh_saved_devices_menu
         self.saved_device_menu = ctk.CTkOptionMenu(
