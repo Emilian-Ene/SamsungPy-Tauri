@@ -1,5 +1,7 @@
 import asyncio
+import collections
 import csv
+import datetime
 import json
 import socket
 import threading
@@ -17,6 +19,7 @@ except ImportError:
 
 import customtkinter as ctk
 from samsung_mdc import MDC
+from updater import check_and_update
 
 try:
     from samsungtvws import SamsungTVWS
@@ -26,7 +29,7 @@ except ImportError:
     _SMARTTVWS_AVAILABLE = False
 
 SAVED_DEVICES_FILE = Path("saved_devices.json")
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.4"
 PROTOCOL_OPTIONS = ["AUTO", "SIGNAGE_MDC", "SMART_TV_WS"]
 SMART_TV_KEYS = [
     "KEY_HOME",
@@ -264,8 +267,14 @@ class SamsungDashboard(ctk.CTk):
         self.mute_var = ctk.StringVar(value="OFF")
         self.input_var = ctk.StringVar(value="HDMI1")
 
-        self.status_var = ctk.StringVar(value="Status: idle")
-        self.network_var = ctk.StringVar(value="Network: checking...")
+        self.status_var    = ctk.StringVar(value="Status: idle")
+        self.network_var   = ctk.StringVar(value="CHECKING...")
+        self.latency_var   = ctk.StringVar(value="")
+        self.netstats_var  = ctk.StringVar(value="")
+        self.netloss_var   = ctk.StringVar(value="")
+        self.localip_var   = ctk.StringVar(value="")
+        self.lastcheck_var = ctk.StringVar(value="")
+        self._ping_history: collections.deque = collections.deque(maxlen=10)  # True=ok, False=fail
 
         self._all_cli_commands = sorted(MDC._commands.keys())
         self.cli_command_var = ctk.StringVar(value=self._all_cli_commands[0] if self._all_cli_commands else "")
@@ -403,16 +412,68 @@ class SamsungDashboard(ctk.CTk):
         # ── Bottom status bar ─────────────────────────────────────────────
         status_bar = ctk.CTkFrame(self, height=32, corner_radius=0, fg_color=p["card2_bg"])
         status_bar.grid(row=1, column=1, sticky="ew", padx=(0, 12), pady=(0, 4))
-        status_bar.grid_columnconfigure(1, weight=1)
+        # right-most column expands to push right-side labels to the edge
+        status_bar.grid_columnconfigure(8, weight=1)
+
+        def _sep(col):
+            ctk.CTkLabel(status_bar, text="│", text_color="#3a5068",
+                         font=ctk.CTkFont(size=11)).grid(
+                row=0, column=col, padx=3, pady=4)
+
+        # col 0 – coloured dot
         self.net_dot = ctk.CTkLabel(status_bar, text="●", text_color="#e74c3c",
-                                    width=20, font=ctk.CTkFont(size=14))
+                                    width=18, font=ctk.CTkFont(size=13))
         self.net_dot.grid(row=0, column=0, padx=(10, 2), pady=4, sticky="w")
-        ctk.CTkLabel(status_bar, textvariable=self.network_var,
-                     text_color="#a0c4e0", font=ctk.CTkFont(size=11)).grid(
-            row=0, column=1, padx=4, pady=4, sticky="w")
+
+        # col 1 – ONLINE / OFFLINE label
+        self.net_state_lbl = ctk.CTkLabel(status_bar, textvariable=self.network_var,
+                                          text_color="#a0c4e0",
+                                          font=ctk.CTkFont(size=11, weight="bold"))
+        self.net_state_lbl.grid(row=0, column=1, padx=(2, 4), pady=4, sticky="w")
+
+        _sep(2)
+
+        # col 3 – current latency (color changes with quality)
+        self.latency_lbl = ctk.CTkLabel(status_bar, textvariable=self.latency_var,
+                                        text_color="#2ecc71",
+                                        font=ctk.CTkFont(size=11))
+        self.latency_lbl.grid(row=0, column=3, padx=4, pady=4, sticky="w")
+
+        _sep(4)
+
+        # col 5 – avg / min / max
+        ctk.CTkLabel(status_bar, textvariable=self.netstats_var,
+                     text_color="#7fb3d3", font=ctk.CTkFont(size=11)).grid(
+            row=0, column=5, padx=4, pady=4, sticky="w")
+
+        _sep(6)
+
+        # col 7 – packet loss
+        self.netloss_lbl = ctk.CTkLabel(status_bar, textvariable=self.netloss_var,
+                                        text_color="#2ecc71",
+                                        font=ctk.CTkFont(size=11))
+        self.netloss_lbl.grid(row=0, column=7, padx=4, pady=4, sticky="w")
+
+        # col 8 expands (spacer)
+
+        # col 9 – local machine IP
+        ctk.CTkLabel(status_bar, textvariable=self.localip_var,
+                     text_color="#5a8fa8", font=ctk.CTkFont(size=11)).grid(
+            row=0, column=9, padx=4, pady=4, sticky="e")
+
+        _sep(10)
+
+        # col 11 – last checked time
+        ctk.CTkLabel(status_bar, textvariable=self.lastcheck_var,
+                     text_color="#5a8fa8", font=ctk.CTkFont(size=11)).grid(
+            row=0, column=11, padx=4, pady=4, sticky="e")
+
+        _sep(12)
+
+        # col 13 – app status
         ctk.CTkLabel(status_bar, textvariable=self.status_var,
                      text_color="#7fb3d3", font=ctk.CTkFont(size=11)).grid(
-            row=0, column=2, padx=(0, 14), pady=4, sticky="e")
+            row=0, column=13, padx=(0, 14), pady=4, sticky="e")
 
         # ════════════════════════════════════════════════════════════════════
         # TAB 1 – Dashboard
@@ -459,6 +520,9 @@ class SamsungDashboard(ctk.CTk):
         self._btn(conn_actions, "Auto Probe", self.auto_probe_protocol,
                   icon="🧭", color=p["neutral"], hover=p["neutral_hover"],
                   height=36).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+        self._btn(conn_actions, "Check Updates", self.check_updates_manual,
+              icon="⬇️", color=p["accent"], hover=p["accent_hover"],
+              height=32).grid(row=1, column=0, columnspan=2, padx=0, pady=(6, 0), sticky="ew")
 
         # Quick actions card
         qa_card = self._card(tab_dash)
@@ -1473,21 +1537,105 @@ class SamsungDashboard(ctk.CTk):
 
     def _schedule_network_check(self):
         def _check():
-            ip = self.ip_var.get().strip()
+            ip   = self.ip_var.get().strip()
+            now  = datetime.datetime.now().strftime("%H:%M:%S")
+
+            # ── local machine IP (best-effort) ────────────────────────────
+            try:
+                local_ip = socket.gethostbyname(socket.gethostname())
+            except Exception:
+                local_ip = "unknown"
+
+            def _ui(fn):
+                self.after(0, fn)
+
             if not ip:
-                self.after(0, lambda: self.network_var.set("Network: no IP"))
-                self.after(0, lambda: self.net_dot.configure(text_color="#e74c3c"))
+                _ui(lambda: self.network_var.set("NO IP"))
+                _ui(lambda: self.net_dot.configure(text_color="#e74c3c"))
+                _ui(lambda: self.net_state_lbl.configure(text_color="#e74c3c"))
+                _ui(lambda: self.latency_var.set(""))
+                _ui(lambda: self.netstats_var.set(""))
+                _ui(lambda: self.netloss_var.set(""))
+                _ui(lambda: self.localip_var.set(f"LAN: {local_ip}"))
+                _ui(lambda: self.lastcheck_var.set(f"checked {now}"))
+                self.after(10000, self._schedule_network_check)
+                return
+
+            # ── TCP probe (same socket logic as before) ───────────────────
+            try:
+                port  = int(self.port_var.get().strip())
+                start = time.perf_counter()
+                with socket.create_connection((ip, port), timeout=2.0):
+                    elapsed = int((time.perf_counter() - start) * 1000)
+                ok = True
+            except Exception:
+                elapsed = None
+                ok = False
+
+            self._ping_history.append(ok)
+
+            # ── compute rolling stats ─────────────────────────────────────
+            successes  = [r for r in self._ping_history if r]
+            total      = len(self._ping_history)
+            loss_pct   = int((1 - len(successes) / total) * 100) if total else 0
+
+            # latency colour thresholds
+            if elapsed is not None:
+                if elapsed < 50:
+                    lat_color, quality = "#2ecc71", "Excellent"
+                elif elapsed < 150:
+                    lat_color, quality = "#f39c12", "Good"
+                elif elapsed < 300:
+                    lat_color, quality = "#e67e22", "Fair"
+                else:
+                    lat_color, quality = "#e74c3c", "Poor"
             else:
-                try:
-                    port = int(self.port_var.get().strip())
-                    start = time.perf_counter()
-                    with socket.create_connection((ip, port), timeout=1.5):
-                        elapsed = int((time.perf_counter() - start) * 1000)
-                        self.after(0, lambda: self.network_var.set(f"Network: ONLINE ({elapsed} ms)"))
-                        self.after(0, lambda: self.net_dot.configure(text_color="#2ecc71"))
-                except Exception:
-                    self.after(0, lambda: self.network_var.set("Network: OFFLINE"))
-                    self.after(0, lambda: self.net_dot.configure(text_color="#e74c3c"))
+                lat_color, quality = "#e74c3c", "OFFLINE"
+
+            # loss colour
+            loss_color = "#2ecc71" if loss_pct == 0 else ("#f39c12" if loss_pct < 30 else "#e74c3c")
+
+            # ── build display strings ─────────────────────────────────────
+            if ok and elapsed is not None:
+                dot_color   = "#2ecc71" if loss_pct < 50 else "#f39c12"
+                state_text  = "ONLINE"
+                state_color = "#2ecc71"
+                lat_text    = f"{elapsed} ms  ({quality})"
+            else:
+                dot_color   = "#e74c3c"
+                state_text  = "OFFLINE"
+                state_color = "#e74c3c"
+                lat_text    = "timeout"
+                lat_color   = "#e74c3c"
+
+            loss_text = f"loss {loss_pct}%  ({len(successes)}/{total} ok)"
+
+            # ── apply UI updates ──────────────────────────────────────────
+            _ui(lambda: self.net_dot.configure(text_color=dot_color))
+            _ui(lambda: self.network_var.set(state_text))
+            _ui(lambda: self.net_state_lbl.configure(text_color=state_color))
+            _ui(lambda: self.latency_var.set(lat_text))
+            _ui(lambda: self.latency_lbl.configure(text_color=lat_color))
+            _ui(lambda: self.netloss_var.set(loss_text))
+            _ui(lambda: self.netloss_lbl.configure(text_color=loss_color))
+            _ui(lambda: self.localip_var.set(f"LAN: {local_ip}"))
+            _ui(lambda: self.lastcheck_var.set(f"checked {now}"))
+
+            # ── update avg/min/max only when we have latency samples ──────
+            # keep a separate numeric history
+            if not hasattr(self, "_lat_history"):
+                self._lat_history: collections.deque = collections.deque(maxlen=10)
+            if ok and elapsed is not None:
+                self._lat_history.append(elapsed)
+            if self._lat_history:
+                avg = int(sum(self._lat_history) / len(self._lat_history))
+                mn  = min(self._lat_history)
+                mx  = max(self._lat_history)
+                stats_text = f"avg {avg} ms  ·  min {mn}  ·  max {mx}"
+            else:
+                stats_text = ""
+            _ui(lambda: self.netstats_var.set(stats_text))
+
             self.after(10000, self._schedule_network_check)
 
         threading.Thread(target=_check, daemon=True).start()
@@ -1566,6 +1714,16 @@ class SamsungDashboard(ctk.CTk):
             self.after(0, _apply_result)
 
         threading.Thread(target=_thread_target, daemon=True).start()
+
+    def check_updates_manual(self):
+        self.status_var.set("Status: checking updates...")
+        self.update_idletasks()
+        try:
+            check_and_update(APP_VERSION)
+        except Exception:
+            pass
+        finally:
+            self.status_var.set("Status: idle")
 
     def get_status(self):
         async def _mdc_worker(mdc: MDC, display_id: int):

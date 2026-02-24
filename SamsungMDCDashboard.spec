@@ -1,10 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
+
+PY_HOME = r"C:/Users/Ionut.Emilian/AppData/Local/Programs/Python/Python313"
+
 
 a = Analysis(
     ['launch_dashboard.py'],
     pathex=[],
-    binaries=[],
+    binaries=[
+        (f"{PY_HOME}/python313.dll", "."),
+        (f"{PY_HOME}/vcruntime140.dll", "."),
+        (f"{PY_HOME}/vcruntime140_1.dll", "."),
+    ],
     datas=[('C:/Users/Ionut.Emilian/AppData/Local/Programs/Python/Python313/Lib/site-packages/customtkinter', 'customtkinter'), ('C:/Users/Ionut.Emilian/AppData/Local/Programs/Python/Python313/Lib/site-packages/darkdetect', 'darkdetect')],
     hiddenimports=['customtkinter', 'darkdetect', 'samsung_mdc', 'samsungtvws', 'websocket', 'requests', 'PIL', 'PIL._tkinter_finder'],
     hookspath=[],
@@ -26,9 +34,9 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
-    runtime_tmpdir=None,
+    runtime_tmpdir=os.path.join(os.getenv('LOCALAPPDATA', '.'), 'SamsungPyRuntime'),
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,

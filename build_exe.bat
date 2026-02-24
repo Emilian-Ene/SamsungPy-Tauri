@@ -11,6 +11,8 @@ py -m PyInstaller ^
     --noconfirm ^
     --onefile ^
     --windowed ^
+    --noupx ^
+    --runtime-tmpdir "%LOCALAPPDATA%\SamsungPyRuntime" ^
     --name "SamsungMDCDashboard" ^
     --add-data "%SITE_PKG%\customtkinter;customtkinter" ^
     --add-data "%SITE_PKG%\darkdetect;darkdetect" ^
