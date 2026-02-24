@@ -28,7 +28,7 @@ except ImportError:
     _SMARTTVWS_AVAILABLE = False
 
 SAVED_DEVICES_FILE = Path("saved_devices.json")
-APP_VERSION = "1.0.4"
+APP_VERSION = "3.0.1"
 PROTOCOL_OPTIONS = ["AUTO", "SIGNAGE_MDC", "SMART_TV_WS"]
 SMART_TV_KEYS = [
     "KEY_HOME",
@@ -372,7 +372,7 @@ class SamsungDashboard(ctk.CTk):
 
         ctk.CTkLabel(
             sidebar,
-            text=f"Powered by Ionut E Ene (dev mode) • v{APP_VERSION}",
+            text=f"developed by Ionut Ene (dev mode) v{APP_VERSION}",
             text_color="#7fb3d3",
             font=ctk.CTkFont(size=10),
         ).grid(row=7, column=0, padx=14, pady=(2, 10), sticky="w")
