@@ -26,7 +26,7 @@ except ImportError:
     _SMARTTVWS_AVAILABLE = False
 
 SAVED_DEVICES_FILE = Path("saved_devices.json")
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 PROTOCOL_OPTIONS = ["AUTO", "SIGNAGE_MDC", "SMART_TV_WS"]
 SMART_TV_KEYS = [
     "KEY_HOME",
@@ -67,6 +67,19 @@ PICTURE_ASPECT_MAP = {
     0x20: "PC_ORIGINAL_RATIO",
     0x01: "VIDEO_16_9",
     0x0B: "VIDEO_4_3",
+}
+
+UNSUPPORTED_COMMAND_HINTS = {
+    "all_keys_lock": "Global key lock is not implemented on this panel/firmware variant.",
+    "osd_aspect_ratio": "OSD aspect ratio requires orientation/PIP features that are not enabled for this mode.",
+    "osd_pip_orientation": "PIP orientation is available only when PIP/orientation modes are supported and active.",
+    "osd_source_content_orientation": "Source content orientation is unavailable for the current source/panel mode.",
+    "picture_mode": "Picture mode query/control is restricted in this panel configuration.",
+    "screen_mode": "Screen mode is unavailable for the active input/source configuration.",
+    "standby": "Standby control is not exposed by this panel through MDC in the current firmware/mode.",
+    "video_wall_mode": "Video wall features are disabled because this panel is not configured as a video wall.",
+    "video_wall_model": "Video wall model settings are unavailable when video wall mode is off.",
+    "video_wall_state": "Video wall state is unavailable when video wall mode is not enabled.",
 }
 
 
@@ -630,6 +643,16 @@ class SamsungDashboard(ctk.CTk):
             fg_color=p["bar_bg"], border_color="#2a4f7a", corner_radius=8,
         )
         self.cli_arg_entry.grid(row=1, column=1, columnspan=2, padx=(0, 14), pady=(0, 10), sticky="ew")
+        self.timer15_hint_label = ctk.CTkLabel(
+            manual_card,
+            text="Tip: timer_15 format starts with timer_id (1-7), then values. Example: 1,08:00,ON,18:00,OFF,...",
+            text_color="#7fb3d3",
+            font=ctk.CTkFont(size=10),
+            wraplength=560,
+            justify="left",
+        )
+        self.timer15_hint_label.grid(row=2, column=0, columnspan=3, padx=14, pady=(0, 10), sticky="w")
+        self.timer15_hint_label.grid_remove()
 
         cli_log_card = self._card(tab_cli)
         cli_log_card.grid(row=4, column=0, sticky="nsew", padx=8, pady=(5, 8))
@@ -702,6 +725,11 @@ class SamsungDashboard(ctk.CTk):
 
     def _on_cli_command_picked(self, command_name: str):
         """Rebuild per-field argument rows for the chosen command."""
+        if command_name == "timer_15":
+            self.timer15_hint_label.grid()
+        else:
+            self.timer15_hint_label.grid_remove()
+
         for widget in self.cli_args_scroll.winfo_children():
             widget.destroy()
         self._cli_arg_rows.clear()
@@ -815,6 +843,52 @@ class SamsungDashboard(ctk.CTk):
             result.append(val)
         return tuple(result)
 
+    @staticmethod
+    def _friendly_mdc_error(command_name: str, exc: Exception) -> str:
+        text = str(exc)
+
+        if command_name == "timer_13" and "15 data-length version of timer received" in text:
+            return "This panel uses TIMER_15. Use timer_15 with a timer_id (1-7)."
+        if command_name == "timer_15" and "13 data-length version of timer received" in text:
+            return "This panel uses TIMER_13. Use timer_13 for this device/firmware."
+
+        if "Negative Acknowledgement" not in text:
+            return text
+
+        code = None
+        try:
+            code = int(text.split("error_code", 1)[1].split("]", 1)[0].strip())
+        except Exception:
+            code = None
+
+        if code == 1:
+            hint = UNSUPPORTED_COMMAND_HINTS.get(
+                command_name,
+                "Not supported on this panel or unavailable in current mode/source.",
+            )
+            return f"{command_name}: {hint}"
+        if code in (130, 131, 132):
+            hint = UNSUPPORTED_COMMAND_HINTS.get(
+                command_name,
+                "Orientation/PIP feature is unavailable in current panel mode.",
+            )
+            return (
+                f"{command_name}: {hint} "
+                f"(MDC error {code})."
+            )
+
+        return f"{text}"
+
+    @staticmethod
+    def _timer_requires_15(exc: Exception) -> bool:
+        text = str(exc).lower()
+        return "15 data-length version of timer received" in text
+
+    @staticmethod
+    def _timer_requires_13(exc: Exception) -> bool:
+        text = str(exc).lower()
+        return "13 data-length version of timer received" in text
+
     def cli_get(self):
         if self._effective_protocol() != "SIGNAGE_MDC":
             self.cli_log("CLI commands are MDC-only. Set Protocol to SIGNAGE_MDC (or AUTO + port 1515).")
@@ -829,7 +903,51 @@ class SamsungDashboard(ctk.CTk):
             self.cli_log(f"{command_name}: this command does not support GET (read).")
             return
 
+        args_tuple = self._collect_cli_args()
+        if command_name == "timer_15" and not args_tuple:
+            self.cli_log("timer_15 GET requires timer_id (1-7). Select/type it in Arguments.")
+            return
+
+        if command_name != "timer_15" and args_tuple:
+            self.cli_log(f"{command_name}: GET ignores arguments; using read-only call.")
+
         async def _worker(mdc: MDC, display_id: int):
+            if command_name in ("timer_13", "timer_15"):
+                timer_id = None
+                if args_tuple:
+                    try:
+                        timer_id = int(str(args_tuple[0]).strip())
+                    except Exception:
+                        timer_id = None
+
+                if command_name == "timer_15":
+                    if timer_id is None:
+                        raise ValueError("timer_15 GET: timer_id must be a number (1-7).")
+                    if timer_id < 1 or timer_id > 7:
+                        raise ValueError("timer_15 GET: timer_id must be between 1 and 7.")
+                    timer_data = tuple(args_tuple[1:])
+                    if timer_data:
+                        self.cli_log("timer_15 GET: extra values ignored; only timer_id is used for read.")
+                    try:
+                        return await mdc.timer_15(display_id, timer_id, ())
+                    except Exception as exc:
+                        if self._timer_requires_13(exc):
+                            self.cli_log("Auto fallback: device expects timer_13, retrying.")
+                            return await mdc.timer_13(display_id)
+                        raise
+
+                try:
+                    return await mdc.timer_13(display_id)
+                except Exception as exc:
+                    if self._timer_requires_15(exc):
+                        if timer_id is None:
+                            raise ValueError("This device expects timer_15. Provide timer_id (1-7) in Arguments.") from exc
+                        if timer_id < 1 or timer_id > 7:
+                            raise ValueError("timer_15 GET: timer_id must be between 1 and 7.") from exc
+                        self.cli_log("Auto fallback: device expects timer_15, retrying.")
+                        return await mdc.timer_15(display_id, timer_id, ())
+                    raise
+
             method = getattr(mdc, command_name)
             return await method(display_id)
 
@@ -838,7 +956,7 @@ class SamsungDashboard(ctk.CTk):
             self.log(f"CLI GET {command_name} OK")
 
         def _on_error(exc):
-            self.cli_log(f"{command_name} GET failed: {exc}")
+            self.cli_log(f"{command_name} GET failed: {self._friendly_mdc_error(command_name, exc)}")
             self.status_var.set(f"Status: CLI GET {command_name} failed")
 
         self.status_var.set(f"Status: CLI GET {command_name}...")
@@ -866,14 +984,44 @@ class SamsungDashboard(ctk.CTk):
             self.cli_log(f"{command_name}: this command does not support SET (write).")
             return
 
-        # timer_15 / timer_13 require an extra timer_id positional argument
-        if command_name in ('timer_15', 'timer_13'):
-            self.cli_log(f"{command_name}: use the CLI terminal for timer commands (requires timer_id).")
+        args_tuple = self._collect_cli_args()
+        if command_name == "timer_15" and not args_tuple:
+            self.cli_log("timer_15 SET requires timer_id (1-7) plus values. Fill Arguments first.")
             return
 
-        args_tuple = self._collect_cli_args()
-
         async def _worker(mdc: MDC, display_id: int):
+            if command_name in ("timer_13", "timer_15"):
+                if command_name == "timer_13":
+                    try:
+                        return await mdc.timer_13(display_id, args_tuple)
+                    except Exception as exc:
+                        if self._timer_requires_15(exc):
+                            self.cli_log("Auto fallback: device expects timer_15.")
+                            self.cli_log("Use Manual Override as: timer_id, then timer_15 values.")
+                        raise
+
+                try:
+                    timer_id = int(str(args_tuple[0]).strip())
+                except Exception as exc:
+                    raise ValueError("timer_15 SET: timer_id must be a number (1-7).") from exc
+
+                if timer_id < 1 or timer_id > 7:
+                    raise ValueError("timer_15 SET: timer_id must be between 1 and 7.")
+
+                timer_data = tuple(args_tuple[1:])
+                if not timer_data:
+                    raise ValueError("timer_15 SET requires timer_id (1-7) plus values.")
+
+                try:
+                    return await mdc.timer_15(display_id, timer_id, timer_data)
+                except Exception as exc:
+                    if self._timer_requires_13(exc):
+                        self.cli_log("Auto fallback: device expects timer_13, retrying with compatible fields.")
+                        if len(timer_data) < 9:
+                            raise ValueError("timer_13 fallback requires at least 9 timer values after timer_id.") from exc
+                        return await mdc.timer_13(display_id, tuple(timer_data[:9]))
+                    raise
+
             method = getattr(mdc, command_name)
             return await method(display_id, args_tuple)
 
@@ -882,7 +1030,7 @@ class SamsungDashboard(ctk.CTk):
             self.log(f"CLI SET {command_name} OK")
 
         def _on_error(exc):
-            self.cli_log(f"{command_name} SET failed: {exc}")
+            self.cli_log(f"{command_name} SET failed: {self._friendly_mdc_error(command_name, exc)}")
             self.status_var.set(f"Status: CLI SET {command_name} failed")
 
         self.status_var.set(f"Status: CLI SET {command_name}...")
