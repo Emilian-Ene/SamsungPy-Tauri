@@ -3,8 +3,7 @@ import sys
 import subprocess
 import tempfile
 
-from dashboard import main, APP_VERSION
-from updater import check_and_update
+from dashboard import main
 from auth_gate import require_online_password
 
 
@@ -50,5 +49,4 @@ if __name__ == "__main__":
     if not require_online_password():
         raise SystemExit(1)
     create_desktop_shortcut()
-    check_and_update(APP_VERSION)
     main()

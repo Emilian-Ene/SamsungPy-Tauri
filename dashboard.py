@@ -19,7 +19,6 @@ except ImportError:
 
 import customtkinter as ctk
 from samsung_mdc import MDC
-from updater import check_and_update
 
 try:
     from samsungtvws import SamsungTVWS
@@ -520,9 +519,6 @@ class SamsungDashboard(ctk.CTk):
         self._btn(conn_actions, "Auto Probe", self.auto_probe_protocol,
                   icon="🧭", color=p["neutral"], hover=p["neutral_hover"],
                   height=36).grid(row=0, column=1, padx=(4, 0), sticky="ew")
-        self._btn(conn_actions, "Check Updates", self.check_updates_manual,
-              icon="⬇️", color=p["accent"], hover=p["accent_hover"],
-              height=32).grid(row=1, column=0, columnspan=2, padx=0, pady=(6, 0), sticky="ew")
 
         # Quick actions card
         qa_card = self._card(tab_dash)
@@ -1714,16 +1710,6 @@ class SamsungDashboard(ctk.CTk):
             self.after(0, _apply_result)
 
         threading.Thread(target=_thread_target, daemon=True).start()
-
-    def check_updates_manual(self):
-        self.status_var.set("Status: checking updates...")
-        self.update_idletasks()
-        try:
-            check_and_update(APP_VERSION)
-        except Exception:
-            pass
-        finally:
-            self.status_var.set("Status: idle")
 
     def get_status(self):
         async def _mdc_worker(mdc: MDC, display_id: int):
