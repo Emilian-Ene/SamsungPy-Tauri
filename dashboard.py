@@ -954,6 +954,13 @@ class SamsungDashboard(ctk.CTk):
             self.cli_log("CLI commands are MDC-only. Set Protocol to SIGNAGE_MDC (or AUTO + port 1515).")
             return
 
+        try:
+            ip, port, display_id, _ = self._validate_connection_fields()
+        except Exception as exc:
+            self.cli_log(f"Connection fields invalid: {exc}")
+            self.status_var.set("Status: CLI GET failed")
+            return
+
         command_name = self.cli_command_var.get().strip()
         if not command_name:
             return
@@ -1023,7 +1030,7 @@ class SamsungDashboard(ctk.CTk):
 
         def _thread():
             try:
-                result = asyncio.run(self._execute_mdc(_worker))
+                result = asyncio.run(self._execute_mdc(_worker, ip, port, display_id))
                 self.after(0, lambda: _on_success(result))
             except Exception as exc:
                 self.after(0, lambda exc=exc: _on_error(exc))
@@ -1033,6 +1040,13 @@ class SamsungDashboard(ctk.CTk):
     def cli_set(self):
         if self._effective_protocol() != "SIGNAGE_MDC":
             self.cli_log("CLI commands are MDC-only. Set Protocol to SIGNAGE_MDC (or AUTO + port 1515).")
+            return
+
+        try:
+            ip, port, display_id, _ = self._validate_connection_fields()
+        except Exception as exc:
+            self.cli_log(f"Connection fields invalid: {exc}")
+            self.status_var.set("Status: CLI SET failed")
             return
 
         command_name = self.cli_command_var.get().strip()
@@ -1097,7 +1111,7 @@ class SamsungDashboard(ctk.CTk):
 
         def _thread():
             try:
-                result = asyncio.run(self._execute_mdc(_worker))
+                result = asyncio.run(self._execute_mdc(_worker, ip, port, display_id))
                 self.after(0, lambda: _on_success(result))
             except Exception as exc:
                 self.after(0, lambda exc=exc: _on_error(exc))
