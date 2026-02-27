@@ -48,6 +48,23 @@ npm install
 npm run tauri dev
 ```
 
+## Build EXE with GitHub Actions
+
+Release flow checklist:
+
+1. Commit and push your latest changes to `main`.
+2. Create and push a version tag (example `v0.1.1`):
+
+```bash
+git tag v0.1.1
+git push tauri v0.1.1
+```
+
+3. Open GitHub -> Actions -> `Release Windows EXE` and wait for success.
+4. Download the `.exe` from either:
+   - the workflow artifact `windows-exe-release`, or
+   - the GitHub Release assets for the pushed tag.
+
 ## Notes
 
 - CLI command schema is available in web mode via `tauri-app/src/cli_catalog.json`.
