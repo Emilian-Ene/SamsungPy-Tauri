@@ -1,0 +1,56 @@
+name: Release Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: SamsungPy.v3/tauri-app/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: SamsungPy.v3/tauri-app
+        run: npm ci
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build Windows EXE
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: SamsungPy.v3/tauri-app
+          args: --target x86_64-pc-windows-msvc --no-bundle
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe-release
+          path: SamsungPy.v3/tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SamsungPy.v3/tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
