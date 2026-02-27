@@ -1,0 +1,3946 @@
+{
+  "commands": [
+    {
+      "name": "all_keys_lock",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "LOCK_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "LOCK_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "auto_adjustment_on",
+      "get": false,
+      "set": true,
+      "fields": [],
+      "response_fields": []
+    },
+    {
+      "name": "auto_id_setting",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "AUTO_ID_SETTING_STATE",
+          "type": "Enum",
+          "enum": [
+            "START",
+            "END"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "AUTO_ID_SETTING_STATE",
+          "type": "Enum",
+          "enum": [
+            "START",
+            "END"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "auto_lamp",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "MAX_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "MAX_LAMP_VALUE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "MIN_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "MIN_LAMP_VALUE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "MAX_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "MAX_LAMP_VALUE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "MIN_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "MIN_LAMP_VALUE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "auto_power",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "AUTO_POWER_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "AUTO_POWER_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "auto_source",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "PRIMARY_SOURCE_RECOVERY",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "PRIMARY_SOURCE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "SECONDARY_SOURCE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "PRIMARY_SOURCE_RECOVERY",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "PRIMARY_SOURCE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "SECONDARY_SOURCE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "auto_source_switch",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "AUTO_SOURCE_SWITCH_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "AUTO_SOURCE_SWITCH_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "brightness",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "BRIGHTNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "BRIGHTNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "channel_change",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "CHANGE_TO",
+          "type": "Enum",
+          "enum": [
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "CHANGE_TO",
+          "type": "Enum",
+          "enum": [
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "clear_menu",
+      "get": false,
+      "set": true,
+      "fields": [],
+      "response_fields": []
+    },
+    {
+      "name": "clock_m",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "DATETIME",
+          "type": "DateTime",
+          "enum": [],
+          "placeholder": "YYYY-MM-DD HH:MM"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "DATETIME",
+          "type": "DateTime",
+          "enum": [],
+          "placeholder": "YYYY-MM-DD HH:MM"
+        }
+      ]
+    },
+    {
+      "name": "clock_s",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "DATETIME",
+          "type": "DateTime",
+          "enum": [],
+          "placeholder": "YYYY-MM-DD HH:MM"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "DATETIME",
+          "type": "DateTime",
+          "enum": [],
+          "placeholder": "YYYY-MM-DD HH:MM"
+        }
+      ]
+    },
+    {
+      "name": "color",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "COLOR",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "COLOR",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "color_temperature",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "HECTO_KELVIN",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "HECTO_KELVIN",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ]
+    },
+    {
+      "name": "color_tone",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "COLOR_TONE_STATE",
+          "type": "Enum",
+          "enum": [
+            "COOL_2",
+            "COOL_1",
+            "NORMAL",
+            "WARM_1",
+            "WARM_2",
+            "OFF"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "COLOR_TONE_STATE",
+          "type": "Enum",
+          "enum": [
+            "COOL_2",
+            "COOL_1",
+            "NORMAL",
+            "WARM_1",
+            "WARM_2",
+            "OFF"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "contrast",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "CONTRAST",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "CONTRAST",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "device_name",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "DEVICE_NAME",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "DEVICE_NAME",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "display_id",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "DISPLAY_ID_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "DISPLAY_ID_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "dst",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "DST_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "AUTO",
+            "MANUAL"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_MONTH",
+          "type": "Enum",
+          "enum": [
+            "JAN",
+            "FEB",
+            "MAR",
+            "APR",
+            "MAY",
+            "JUN",
+            "JUL",
+            "AUG",
+            "SEP",
+            "OCT",
+            "NOV",
+            "DEC"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_WEEK",
+          "type": "Enum",
+          "enum": [
+            "WEEK_1",
+            "WEEK_2",
+            "WEEK_3",
+            "WEEK_4",
+            "WEEK_LAST"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_WEEKDAY",
+          "type": "Enum",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_TIME",
+          "type": "Time",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "END_MONTH",
+          "type": "Enum",
+          "enum": [
+            "JAN",
+            "FEB",
+            "MAR",
+            "APR",
+            "MAY",
+            "JUN",
+            "JUL",
+            "AUG",
+            "SEP",
+            "OCT",
+            "NOV",
+            "DEC"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "END_WEEK",
+          "type": "Enum",
+          "enum": [
+            "WEEK_1",
+            "WEEK_2",
+            "WEEK_3",
+            "WEEK_4",
+            "WEEK_LAST"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "END_WEEKDAY",
+          "type": "Enum",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "END_TIME",
+          "type": "Time",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "OFFSET",
+          "type": "Enum",
+          "enum": [
+            "PLUS_1_00",
+            "PLUS_2_00"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "DST_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "AUTO",
+            "MANUAL"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_MONTH",
+          "type": "Enum",
+          "enum": [
+            "JAN",
+            "FEB",
+            "MAR",
+            "APR",
+            "MAY",
+            "JUN",
+            "JUL",
+            "AUG",
+            "SEP",
+            "OCT",
+            "NOV",
+            "DEC"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_WEEK",
+          "type": "Enum",
+          "enum": [
+            "WEEK_1",
+            "WEEK_2",
+            "WEEK_3",
+            "WEEK_4",
+            "WEEK_LAST"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_WEEKDAY",
+          "type": "Enum",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_TIME",
+          "type": "Time",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "END_MONTH",
+          "type": "Enum",
+          "enum": [
+            "JAN",
+            "FEB",
+            "MAR",
+            "APR",
+            "MAY",
+            "JUN",
+            "JUL",
+            "AUG",
+            "SEP",
+            "OCT",
+            "NOV",
+            "DEC"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "END_WEEK",
+          "type": "Enum",
+          "enum": [
+            "WEEK_1",
+            "WEEK_2",
+            "WEEK_3",
+            "WEEK_4",
+            "WEEK_LAST"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "END_WEEKDAY",
+          "type": "Enum",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "END_TIME",
+          "type": "Time",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "OFFSET",
+          "type": "Enum",
+          "enum": [
+            "PLUS_1_00",
+            "PLUS_2_00"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "energy_saving",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "ENERGY_SAVING_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "PICTURE_OFF"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ENERGY_SAVING_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "PICTURE_OFF"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "error_status",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "LAMP_ERROR_STATE",
+          "type": "Enum",
+          "enum": [
+            "NORMAL",
+            "ERROR"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "TEMPERATURE_ERROR_STATE",
+          "type": "Enum",
+          "enum": [
+            "NORMAL",
+            "ERROR"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "BRIGHTNESS_SENSOR_ERROR_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "ERROR",
+            "NORMAL"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "INPUT_SOURCE_ERROR_STATE",
+          "type": "Enum",
+          "enum": [
+            "NORMAL",
+            "ERROR",
+            "INVALID"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "TEMPERATURE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        },
+        {
+          "name": "FAN_ERROR_STATE",
+          "type": "Enum",
+          "enum": [
+            "NORMAL",
+            "ERROR",
+            "NONE"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "h_position",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "H_POSITION_MOVE_TO",
+          "type": "Enum",
+          "enum": [
+            "LEFT",
+            "RIGHT"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "H_POSITION_MOVE_TO",
+          "type": "Enum",
+          "enum": [
+            "LEFT",
+            "RIGHT"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "holiday_get",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "INDEX",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "INDEX",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ]
+    },
+    {
+      "name": "holiday_set",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "HOLIDAY_MANAGE",
+          "type": "Enum",
+          "enum": [
+            "ADD",
+            "DELETE",
+            "DELETE_ALL"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_MONTH",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-12)",
+          "range": {
+            "min": 0,
+            "max": 12
+          }
+        },
+        {
+          "name": "START_DAY",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-31)",
+          "range": {
+            "min": 0,
+            "max": 31
+          }
+        },
+        {
+          "name": "END_MONTH",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-12)",
+          "range": {
+            "min": 0,
+            "max": 12
+          }
+        },
+        {
+          "name": "END_DAY",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-31)",
+          "range": {
+            "min": 0,
+            "max": 31
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "HOLIDAY_MANAGE",
+          "type": "Enum",
+          "enum": [
+            "ADD",
+            "DELETE",
+            "DELETE_ALL"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "START_MONTH",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-12)",
+          "range": {
+            "min": 0,
+            "max": 12
+          }
+        },
+        {
+          "name": "START_DAY",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-31)",
+          "range": {
+            "min": 0,
+            "max": 31
+          }
+        },
+        {
+          "name": "END_MONTH",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-12)",
+          "range": {
+            "min": 0,
+            "max": 12
+          }
+        },
+        {
+          "name": "END_DAY",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-31)",
+          "range": {
+            "min": 0,
+            "max": 31
+          }
+        }
+      ]
+    },
+    {
+      "name": "input_source",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "INPUT_SOURCE_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "INPUT_SOURCE_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "inverse",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "INVERSE_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "INVERSE_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "ir_state",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "IR_STATE",
+          "type": "Enum",
+          "enum": [
+            "DISABLED",
+            "ENABLED"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "IR_STATE",
+          "type": "Enum",
+          "enum": [
+            "DISABLED",
+            "ENABLED"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "launcher_play_via",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "PLAY_VIA_MODE",
+          "type": "Enum",
+          "enum": [
+            "MAGIC_INFO",
+            "URL_LAUNCHER",
+            "MAGIC_IWB"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "PLAY_VIA_MODE",
+          "type": "Enum",
+          "enum": [
+            "MAGIC_INFO",
+            "URL_LAUNCHER",
+            "MAGIC_IWB"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "launcher_url_address",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "URL_ADDRESS",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "URL_ADDRESS",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "magicinfo_channel",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "CHANNEL_NUMBER",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "CHANNEL_NUMBER",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ]
+    },
+    {
+      "name": "magicinfo_content_orientation",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "magicinfo_server",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "MAGICINFO_SERVER_URL",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "MAGICINFO_SERVER_URL",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "manual_lamp",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "LAMP_VALUE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "LAMP_VALUE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "mdc_connection",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "MDC_CONNECTION_TYPE",
+          "type": "Enum",
+          "enum": [
+            "RS232C",
+            "RJ45"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "MDC_CONNECTION_TYPE",
+          "type": "Enum",
+          "enum": [
+            "RS232C",
+            "RJ45"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "model_name",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "MODEL_NAME",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "model_number",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "MODEL_SPECIES",
+          "type": "Enum",
+          "enum": [
+            "PDP",
+            "LCD",
+            "DLP",
+            "LED",
+            "CRT",
+            "OLED"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MODEL_CODE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        },
+        {
+          "name": "TV_SUPPORT",
+          "type": "Enum",
+          "enum": [
+            "SUPPORTED",
+            "NOT_SUPPORTED"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "mute",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "MUTE_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "NONE"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "MUTE_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "NONE"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "network_ap_config",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "SSID",
+          "type": "StrCoded",
+          "enum": [],
+          "placeholder": "text string"
+        },
+        {
+          "name": "PASSWORD",
+          "type": "StrCoded",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "SSID",
+          "type": "StrCoded",
+          "enum": [],
+          "placeholder": "text string"
+        },
+        {
+          "name": "PASSWORD",
+          "type": "StrCoded",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "network_configuration",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "IP_ADDRESS",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        },
+        {
+          "name": "SUBNET_MASK",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        },
+        {
+          "name": "GATEWAY_ADDRESS",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        },
+        {
+          "name": "DNS_SERVER_ADDRESS",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "IP_ADDRESS",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        },
+        {
+          "name": "SUBNET_MASK",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        },
+        {
+          "name": "GATEWAY_ADDRESS",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        },
+        {
+          "name": "DNS_SERVER_ADDRESS",
+          "type": "IPAddress",
+          "enum": [],
+          "placeholder": "192.168.1.50"
+        }
+      ]
+    },
+    {
+      "name": "network_mode",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "NETWORK_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "DYNAMIC",
+            "STATIC"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "NETWORK_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "DYNAMIC",
+            "STATIC"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "network_standby",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "NETWORK_STANDBY_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "NETWORK_STANDBY_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "osd",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "OSD_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "OSD_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        }
+      ]
+    },
+    {
+      "name": "osd_aspect_ratio",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "ASPECT_RATIO_STATE",
+          "type": "Enum",
+          "enum": [
+            "FULL_SCREEN",
+            "ORIGINAL"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ASPECT_RATIO_STATE",
+          "type": "Enum",
+          "enum": [
+            "FULL_SCREEN",
+            "ORIGINAL"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "osd_menu_orientation",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "osd_menu_size",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "MENU_SIZE_STATE",
+          "type": "Enum",
+          "enum": [
+            "ORIGINAL",
+            "MEDIUM",
+            "SMALL"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "MENU_SIZE_STATE",
+          "type": "Enum",
+          "enum": [
+            "ORIGINAL",
+            "MEDIUM",
+            "SMALL"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "osd_pip_orientation",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "osd_source_content_orientation",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ORIENTATION_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "LANDSCAPE_0",
+            "PORTRAIT_270",
+            "LANDSCAPE_180",
+            "PORTRAIT_90"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "osd_type",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "OSD_TYPE",
+          "type": "Enum",
+          "enum": [
+            "SOURCE",
+            "NOT_OPTIMUM_MODE",
+            "NO_SIGNAL",
+            "MDC",
+            "SCHEDULE_CHANNEL"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "OSD_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "OSD_TYPE",
+          "type": "Enum",
+          "enum": [
+            "SOURCE",
+            "NOT_OPTIMUM_MODE",
+            "NO_SIGNAL",
+            "MDC",
+            "SCHEDULE_CHANNEL"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "OSD_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        }
+      ]
+    },
+    {
+      "name": "panel",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "PANEL_STATE",
+          "type": "Enum",
+          "enum": [
+            "ON",
+            "OFF"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "PANEL_STATE",
+          "type": "Enum",
+          "enum": [
+            "ON",
+            "OFF"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "panel_lock",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "LOCK_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "LOCK_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "panel_on_time",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "MIN10",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ]
+    },
+    {
+      "name": "picture_aspect",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "PICTURE_ASPECT_STATE",
+          "type": "Enum",
+          "enum": [
+            "PC_16_9",
+            "PC_4_3",
+            "PC_ORIGINAL_RATIO",
+            "PC_21_9",
+            "PC_CUSTOM",
+            "VIDEO_AUTO_WIDE",
+            "VIDEO_16_9",
+            "VIDEO_ZOOM",
+            "VIDEO_ZOOM_1",
+            "VIDEO_ZOOM_2",
+            "VIDEO_SCREEN_FIT",
+            "VIDEO_4_3",
+            "VIDEO_WIDE_FIT",
+            "VIDEO_CUSTOM",
+            "VIDEO_SMART_VIEW_1",
+            "VIDEO_SMART_VIEW_2",
+            "VIDEO_WIDE_ZOOM",
+            "VIDEO_21_9"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "PICTURE_ASPECT_STATE",
+          "type": "Enum",
+          "enum": [
+            "PC_16_9",
+            "PC_4_3",
+            "PC_ORIGINAL_RATIO",
+            "PC_21_9",
+            "PC_CUSTOM",
+            "VIDEO_AUTO_WIDE",
+            "VIDEO_16_9",
+            "VIDEO_ZOOM",
+            "VIDEO_ZOOM_1",
+            "VIDEO_ZOOM_2",
+            "VIDEO_SCREEN_FIT",
+            "VIDEO_4_3",
+            "VIDEO_WIDE_FIT",
+            "VIDEO_CUSTOM",
+            "VIDEO_SMART_VIEW_1",
+            "VIDEO_SMART_VIEW_2",
+            "VIDEO_WIDE_ZOOM",
+            "VIDEO_21_9"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "picture_mode",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "PICTURE_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "DYNAMIC",
+            "STANDARD",
+            "MOVIE",
+            "CUSTOM_TV",
+            "NATURAL",
+            "CALIBRATION_TV",
+            "ENTERTAIN",
+            "INTERNET",
+            "TEXT",
+            "CUSTOM",
+            "ADVERTISEMENT",
+            "INFORMATION",
+            "CALIBRATION",
+            "SHOP_MALL_VIDEO",
+            "SHOP_MALL_TEXT",
+            "OFFICE_SCHOOL_VIDEO",
+            "OFFICE_SCHOOL_TEXT",
+            "TERMINAL_STATION_VIDEO",
+            "TERMINAL_STATION_TEXT",
+            "VIDEO_WALL_VIDEO",
+            "VIDEO_WALL_TEXT",
+            "HDR_PLUS",
+            "OFF",
+            "RESERVED_OTHER"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "PICTURE_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "DYNAMIC",
+            "STANDARD",
+            "MOVIE",
+            "CUSTOM_TV",
+            "NATURAL",
+            "CALIBRATION_TV",
+            "ENTERTAIN",
+            "INTERNET",
+            "TEXT",
+            "CUSTOM",
+            "ADVERTISEMENT",
+            "INFORMATION",
+            "CALIBRATION",
+            "SHOP_MALL_VIDEO",
+            "SHOP_MALL_TEXT",
+            "OFFICE_SCHOOL_VIDEO",
+            "OFFICE_SCHOOL_TEXT",
+            "TERMINAL_STATION_VIDEO",
+            "TERMINAL_STATION_TEXT",
+            "VIDEO_WALL_VIDEO",
+            "VIDEO_WALL_TEXT",
+            "HDR_PLUS",
+            "OFF",
+            "RESERVED_OTHER"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "power",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "POWER_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "REBOOT"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "POWER_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "REBOOT"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "reset",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "RESET_TARGET",
+          "type": "Enum",
+          "enum": [
+            "PICTURE",
+            "SOUND",
+            "SETUP",
+            "ALL",
+            "SCREEN_DISPLAY"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "RESET_TARGET",
+          "type": "Enum",
+          "enum": [
+            "PICTURE",
+            "SOUND",
+            "SETUP",
+            "ALL",
+            "SCREEN_DISPLAY"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "rgb",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "CONTRAST",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "BRIGHTNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "COLOR_TONE_STATE",
+          "type": "Enum",
+          "enum": [
+            "COOL_2",
+            "COOL_1",
+            "NORMAL",
+            "WARM_1",
+            "WARM_2",
+            "OFF"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "COLOR_TEMPERATURE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        },
+        {
+          "name": "_IGNORE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-0)",
+          "range": {
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "RED_GAIN",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        },
+        {
+          "name": "GREEN_GAIN",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        },
+        {
+          "name": "BLUE_GAIN",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ]
+    },
+    {
+      "name": "rgb_brightness",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "BRIGHTNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "BRIGHTNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "rgb_contrast",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "CONTRAST",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "CONTRAST",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "safety_lock",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "LOCK_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "LOCK_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "screen_mode",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "SCREEN_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "MODE_16_9",
+            "MODE_ZOOM",
+            "MODE_4_3",
+            "MODE_WIDE_ZOOM"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "SCREEN_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "MODE_16_9",
+            "MODE_ZOOM",
+            "MODE_4_3",
+            "MODE_WIDE_ZOOM"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "screen_mute",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "SCREEN_MUTE_STATUS",
+          "type": "Enum",
+          "enum": [
+            "ON",
+            "OFF"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "SCREEN_MUTE_STATUS",
+          "type": "Enum",
+          "enum": [
+            "ON",
+            "OFF"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "screen_size",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "INCHES",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-255)",
+          "range": {
+            "min": 0,
+            "max": 255
+          }
+        }
+      ]
+    },
+    {
+      "name": "serial_number",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "SERIAL_NUMBER",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "set_content_download",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "CONTENT_URL",
+          "type": "StrCoded",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "CONTENT_URL",
+          "type": "StrCoded",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "sharpness",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "SHARPNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "SHARPNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "software_version",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "SOFTWARE_VERSION",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "sound_mode",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "SOUND_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "STANDARD",
+            "MUSIC",
+            "MOVIE",
+            "SPEECH",
+            "CUSTOM",
+            "AMPLIFY",
+            "OPTIMIZED"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "SOUND_MODE_STATE",
+          "type": "Enum",
+          "enum": [
+            "STANDARD",
+            "MUSIC",
+            "MOVIE",
+            "SPEECH",
+            "CUSTOM",
+            "AMPLIFY",
+            "OPTIMIZED"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "standby",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "STANDBY_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "AUTO"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "STANDBY_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "AUTO"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "POWER_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "REBOOT"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "VOLUME",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "MUTE_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON",
+            "NONE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "INPUT_SOURCE_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "PICTURE_ASPECT_STATE",
+          "type": "Enum",
+          "enum": [
+            "PC_16_9",
+            "PC_4_3",
+            "PC_ORIGINAL_RATIO",
+            "PC_21_9",
+            "PC_CUSTOM",
+            "VIDEO_AUTO_WIDE",
+            "VIDEO_16_9",
+            "VIDEO_ZOOM",
+            "VIDEO_ZOOM_1",
+            "VIDEO_ZOOM_2",
+            "VIDEO_SCREEN_FIT",
+            "VIDEO_4_3",
+            "VIDEO_WIDE_FIT",
+            "VIDEO_CUSTOM",
+            "VIDEO_SMART_VIEW_1",
+            "VIDEO_SMART_VIEW_2",
+            "VIDEO_WIDE_ZOOM",
+            "VIDEO_21_9"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "N_TIME_NF",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        },
+        {
+          "name": "F_TIME_NF",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        }
+      ]
+    },
+    {
+      "name": "ticker",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "ON_OFF",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "START_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "END_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "POS_HORIZ",
+          "type": "Enum",
+          "enum": [
+            "CENTER",
+            "LEFT",
+            "RIGHT",
+            "NONE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "POS_VERTI",
+          "type": "Enum",
+          "enum": [
+            "MIDDLE",
+            "TOP",
+            "BOTTOM",
+            "NONE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MOTION_ON_OFF",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "MOTION_DIR",
+          "type": "Enum",
+          "enum": [
+            "LEFT",
+            "RIGHT",
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MOTION_SPEED",
+          "type": "Enum",
+          "enum": [
+            "NORMAL",
+            "SLOW",
+            "FAST"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "FONT_SIZE",
+          "type": "Enum",
+          "enum": [
+            "STANDARD",
+            "SMALL",
+            "LARGE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "FOREGROUND_COLOR",
+          "type": "Enum",
+          "enum": [
+            "BLACK",
+            "WHITE",
+            "RED",
+            "GREEN",
+            "BLUE",
+            "YELLOW",
+            "MAGENTA",
+            "CYAN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "BACKGROUND_COLOR",
+          "type": "Enum",
+          "enum": [
+            "BLACK",
+            "WHITE",
+            "RED",
+            "GREEN",
+            "BLUE",
+            "YELLOW",
+            "MAGENTA",
+            "CYAN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "FOREGROUND_OPACITY",
+          "type": "Enum",
+          "enum": [
+            "FLASHING",
+            "FLASH_ALL",
+            "OFF"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "BACKGROUND_OPACITY",
+          "type": "Enum",
+          "enum": [
+            "SOLID",
+            "TRANSPARENT",
+            "TRANSLUCENT",
+            "UNKNOWN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MESSAGE",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ON_OFF",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "START_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "END_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "POS_HORIZ",
+          "type": "Enum",
+          "enum": [
+            "CENTER",
+            "LEFT",
+            "RIGHT",
+            "NONE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "POS_VERTI",
+          "type": "Enum",
+          "enum": [
+            "MIDDLE",
+            "TOP",
+            "BOTTOM",
+            "NONE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MOTION_ON_OFF",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "MOTION_DIR",
+          "type": "Enum",
+          "enum": [
+            "LEFT",
+            "RIGHT",
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MOTION_SPEED",
+          "type": "Enum",
+          "enum": [
+            "NORMAL",
+            "SLOW",
+            "FAST"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "FONT_SIZE",
+          "type": "Enum",
+          "enum": [
+            "STANDARD",
+            "SMALL",
+            "LARGE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "FOREGROUND_COLOR",
+          "type": "Enum",
+          "enum": [
+            "BLACK",
+            "WHITE",
+            "RED",
+            "GREEN",
+            "BLUE",
+            "YELLOW",
+            "MAGENTA",
+            "CYAN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "BACKGROUND_COLOR",
+          "type": "Enum",
+          "enum": [
+            "BLACK",
+            "WHITE",
+            "RED",
+            "GREEN",
+            "BLUE",
+            "YELLOW",
+            "MAGENTA",
+            "CYAN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "FOREGROUND_OPACITY",
+          "type": "Enum",
+          "enum": [
+            "FLASHING",
+            "FLASH_ALL",
+            "OFF"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "BACKGROUND_OPACITY",
+          "type": "Enum",
+          "enum": [
+            "SOLID",
+            "TRANSPARENT",
+            "TRANSLUCENT",
+            "UNKNOWN"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MESSAGE",
+          "type": "Str",
+          "enum": [],
+          "placeholder": "text string"
+        }
+      ]
+    },
+    {
+      "name": "timer_13",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "TIMER_ID",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (1-7)",
+          "range": {
+            "min": 1,
+            "max": 7
+          }
+        },
+        {
+          "name": "ON_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "ON_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "OFF_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "OFF_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "REPEAT",
+          "type": "Enum",
+          "enum": [
+            "ONCE",
+            "EVERYDAY",
+            "MON_FRI",
+            "MON_SAT",
+            "SAT_SUN",
+            "MANUAL_WEEKDAY"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MANUAL_WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "VOLUME",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "INPUT_SOURCE_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "HOLIDAY_APPLY",
+          "type": "Enum",
+          "enum": [
+            "DONT_APPLY_BOTH",
+            "APPLY_BOTH",
+            "ON_TIMER_ONLY_APPLY",
+            "OFF_TIMER_ONLY_APPLY"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ON_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "ON_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "OFF_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "OFF_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "REPEAT",
+          "type": "Enum",
+          "enum": [
+            "ONCE",
+            "EVERYDAY",
+            "MON_FRI",
+            "MON_SAT",
+            "SAT_SUN",
+            "MANUAL_WEEKDAY"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "MANUAL_WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "VOLUME",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "INPUT_SOURCE_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "HOLIDAY_APPLY",
+          "type": "Enum",
+          "enum": [
+            "DONT_APPLY_BOTH",
+            "APPLY_BOTH",
+            "ON_TIMER_ONLY_APPLY",
+            "OFF_TIMER_ONLY_APPLY"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "timer_15",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "TIMER_ID",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (1-7)",
+          "range": {
+            "min": 1,
+            "max": 7
+          }
+        },
+        {
+          "name": "ON_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "ON_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "OFF_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "OFF_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "ON_REPEAT",
+          "type": "Enum",
+          "enum": [
+            "ONCE",
+            "EVERYDAY",
+            "MON_FRI",
+            "MON_SAT",
+            "SAT_SUN",
+            "MANUAL_WEEKDAY"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "ON_MANUAL_WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "OFF_REPEAT",
+          "type": "Enum",
+          "enum": [
+            "ONCE",
+            "EVERYDAY",
+            "MON_FRI",
+            "MON_SAT",
+            "SAT_SUN",
+            "MANUAL_WEEKDAY"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "OFF_MANUAL_WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "VOLUME",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "INPUT_SOURCE_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "HOLIDAY_APPLY",
+          "type": "Enum",
+          "enum": [
+            "DONT_APPLY_BOTH",
+            "APPLY_BOTH",
+            "ON_TIMER_ONLY_APPLY",
+            "OFF_TIMER_ONLY_APPLY"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "ON_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "ON_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "OFF_TIME",
+          "type": "Time12H",
+          "enum": [],
+          "placeholder": "HH:MM"
+        },
+        {
+          "name": "OFF_ENABLED",
+          "type": "Bool",
+          "enum": [],
+          "placeholder": "ON | OFF (or 1 / 0)"
+        },
+        {
+          "name": "ON_REPEAT",
+          "type": "Enum",
+          "enum": [
+            "ONCE",
+            "EVERYDAY",
+            "MON_FRI",
+            "MON_SAT",
+            "SAT_SUN",
+            "MANUAL_WEEKDAY"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "ON_MANUAL_WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "OFF_REPEAT",
+          "type": "Enum",
+          "enum": [
+            "ONCE",
+            "EVERYDAY",
+            "MON_FRI",
+            "MON_SAT",
+            "SAT_SUN",
+            "MANUAL_WEEKDAY"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "OFF_MANUAL_WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI",
+            "SAT"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "VOLUME",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "INPUT_SOURCE_STATE",
+          "type": "Enum",
+          "enum": [
+            "NONE",
+            "S_VIDEO",
+            "COMPONENT",
+            "AV",
+            "AV2",
+            "SCART1",
+            "DVI",
+            "PC",
+            "BNC",
+            "DVI_VIDEO",
+            "MAGIC_INFO",
+            "HDMI1",
+            "HDMI1_PC",
+            "HDMI2",
+            "HDMI2_PC",
+            "DISPLAY_PORT_1",
+            "DISPLAY_PORT_2",
+            "DISPLAY_PORT_3",
+            "RF_TV",
+            "HDMI3",
+            "HDMI3_PC",
+            "HDMI4",
+            "HDMI4_PC",
+            "TV_DTV",
+            "PLUG_IN_MODE",
+            "HD_BASE_T",
+            "OCM",
+            "MEDIA_MAGIC_INFO_S",
+            "WIDI_SCREEN_MIRRORING",
+            "INTERNAL_USB",
+            "URL_LAUNCHER",
+            "IWB",
+            "WEB_BROWSER",
+            "REMOTE_WORKSPACE"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "HOLIDAY_APPLY",
+          "type": "Enum",
+          "enum": [
+            "DONT_APPLY_BOTH",
+            "APPLY_BOTH",
+            "ON_TIMER_ONLY_APPLY",
+            "OFF_TIMER_ONLY_APPLY"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "tint",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "TINT",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "TINT",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "v_position",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "V_POSITION_MOVE_TO",
+          "type": "Enum",
+          "enum": [
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "V_POSITION_MOVE_TO",
+          "type": "Enum",
+          "enum": [
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "video",
+      "get": true,
+      "set": false,
+      "fields": [],
+      "response_fields": [
+        {
+          "name": "CONTRAST",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "BRIGHTNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "SHARPNESS",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "COLOR",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "TINT",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "COLOR_TONE_STATE",
+          "type": "Enum",
+          "enum": [
+            "COOL_2",
+            "COOL_1",
+            "NORMAL",
+            "WARM_1",
+            "WARM_2",
+            "OFF"
+          ],
+          "placeholder": "value"
+        },
+        {
+          "name": "COLOR_TEMPERATURE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "integer"
+        },
+        {
+          "name": "_IGNORE",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-0)",
+          "range": {
+            "min": 0,
+            "max": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "video_wall_mode",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "VIDEO_WALL_MODE",
+          "type": "Enum",
+          "enum": [
+            "NATURAL",
+            "FULL"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "VIDEO_WALL_MODE",
+          "type": "Enum",
+          "enum": [
+            "NATURAL",
+            "FULL"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "video_wall_model",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "MODEL",
+          "type": "VideoWallModel",
+          "enum": [],
+          "placeholder": "X,Y"
+        },
+        {
+          "name": "SERIAL",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (1-255)",
+          "range": {
+            "min": 1,
+            "max": 255
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "MODEL",
+          "type": "VideoWallModel",
+          "enum": [],
+          "placeholder": "X,Y"
+        },
+        {
+          "name": "SERIAL",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (1-255)",
+          "range": {
+            "min": 1,
+            "max": 255
+          }
+        }
+      ]
+    },
+    {
+      "name": "video_wall_state",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "VIDEO_WALL_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "VIDEO_WALL_STATE",
+          "type": "Enum",
+          "enum": [
+            "OFF",
+            "ON"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "virtual_remote",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "KEY_CODE",
+          "type": "Enum",
+          "enum": [
+            "KEY_SOURCE",
+            "KEY_POWER",
+            "KEY_1",
+            "KEY_2",
+            "KEY_3",
+            "KEY_VOLUME_UP",
+            "KEY_4",
+            "KEY_5",
+            "KEY_6",
+            "KEY_VOLUME_DOWN",
+            "KEY_7",
+            "KEY_8",
+            "KEY_9",
+            "KEY_MUTE",
+            "KEY_CHANNEL_DOWN",
+            "KEY_0",
+            "KEY_CHANNEL_UP",
+            "KEY_GREEN",
+            "KEY_YELLOW",
+            "KEY_CYAN",
+            "KEY_MENU",
+            "KEY_DISPLAY",
+            "KEY_DIGIT",
+            "KEY_PIP_TV_VIDEO",
+            "KEY_EXIT",
+            "KEY_MAGICINFO",
+            "KEY_REW",
+            "KEY_STOP",
+            "KEY_PLAY",
+            "KEY_FF",
+            "KEY_PAUSE",
+            "KEY_TOOLS",
+            "KEY_RETURN",
+            "KEY_MAGICINFO_LITE",
+            "KEY_CURSOR_UP",
+            "KEY_CURSOR_DOWN",
+            "KEY_CURSOR_RIGHT",
+            "KEY_CURSOR_LEFT",
+            "KEY_ENTER",
+            "KEY_RED",
+            "KEY_LOCK",
+            "KEY_CONTENT",
+            "DISCRET_POWER_OFF",
+            "KEY_3D"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "KEY_CODE",
+          "type": "Enum",
+          "enum": [
+            "KEY_SOURCE",
+            "KEY_POWER",
+            "KEY_1",
+            "KEY_2",
+            "KEY_3",
+            "KEY_VOLUME_UP",
+            "KEY_4",
+            "KEY_5",
+            "KEY_6",
+            "KEY_VOLUME_DOWN",
+            "KEY_7",
+            "KEY_8",
+            "KEY_9",
+            "KEY_MUTE",
+            "KEY_CHANNEL_DOWN",
+            "KEY_0",
+            "KEY_CHANNEL_UP",
+            "KEY_GREEN",
+            "KEY_YELLOW",
+            "KEY_CYAN",
+            "KEY_MENU",
+            "KEY_DISPLAY",
+            "KEY_DIGIT",
+            "KEY_PIP_TV_VIDEO",
+            "KEY_EXIT",
+            "KEY_MAGICINFO",
+            "KEY_REW",
+            "KEY_STOP",
+            "KEY_PLAY",
+            "KEY_FF",
+            "KEY_PAUSE",
+            "KEY_TOOLS",
+            "KEY_RETURN",
+            "KEY_MAGICINFO_LITE",
+            "KEY_CURSOR_UP",
+            "KEY_CURSOR_DOWN",
+            "KEY_CURSOR_RIGHT",
+            "KEY_CURSOR_LEFT",
+            "KEY_ENTER",
+            "KEY_RED",
+            "KEY_LOCK",
+            "KEY_CONTENT",
+            "DISCRET_POWER_OFF",
+            "KEY_3D"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "volume",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "VOLUME",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "VOLUME",
+          "type": "Int",
+          "enum": [],
+          "placeholder": "int (0-100)",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "volume_change",
+      "get": false,
+      "set": true,
+      "fields": [
+        {
+          "name": "CHANGE_TO",
+          "type": "Enum",
+          "enum": [
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "CHANGE_TO",
+          "type": "Enum",
+          "enum": [
+            "UP",
+            "DOWN"
+          ],
+          "placeholder": "value"
+        }
+      ]
+    },
+    {
+      "name": "weekly_restart",
+      "get": true,
+      "set": true,
+      "fields": [
+        {
+          "name": "WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "SAT",
+            "FRI",
+            "THU",
+            "WED",
+            "TUE",
+            "MON"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "TIME",
+          "type": "Time",
+          "enum": [],
+          "placeholder": "HH:MM"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "WEEKDAY",
+          "type": "Bitmask",
+          "enum": [
+            "SUN",
+            "SAT",
+            "FRI",
+            "THU",
+            "WED",
+            "TUE",
+            "MON"
+          ],
+          "placeholder": "comma-separated values"
+        },
+        {
+          "name": "TIME",
+          "type": "Time",
+          "enum": [],
+          "placeholder": "HH:MM"
+        }
+      ]
+    }
+  ]
+}

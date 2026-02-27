@@ -1,3 +1,2 @@
 python-samsung-mdc
-customtkinter
 samsungtvws
