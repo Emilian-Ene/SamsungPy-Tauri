@@ -41,6 +41,16 @@ npm install
 npm run tauri dev
 ```
 
+## Build Windows EXE with GitHub Actions
+
+- Workflow file: `.github/workflows/build-windows.yml`
+- Trigger options:
+  - manual: GitHub -> Actions -> **Build Windows EXE** -> Run workflow
+  - tag push: `v*` (example: `v0.1.0`)
+- Output artifact name: `windows-exe`
+- Artifact content: compiled app binary from
+  - `src-tauri/target/x86_64-pc-windows-msvc/release/*.exe`
+
 ## Notes
 
 - This is a **migration baseline** with core parity for connection workflows.
