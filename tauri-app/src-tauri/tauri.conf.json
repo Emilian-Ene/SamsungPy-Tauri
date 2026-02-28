@@ -25,6 +25,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Ionut Ene (dev)",
     "resources": [
       "../py/bridge.py",
       "../py/web_backend.py",

@@ -52,12 +52,22 @@ jobs:
         working-directory: tauri-app
         run: npm run tauri build -- --target x86_64-pc-windows-msvc
 
+      - name: Rename portable EXE
+        shell: bash
+        run: |
+          exe_file="$(find tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release -maxdepth 1 -type f -name '*.exe' | head -n 1)"
+          if [ -z "$exe_file" ]; then
+            echo "Portable EXE not found"
+            exit 1
+          fi
+          cp "$exe_file" "tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/Samsung_MCD_${{ steps.app_version.outputs.version }}_portable.exe"
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts-${{ steps.app_version.outputs.version }}
           path: |
-            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/Samsung_MCD_${{ steps.app_version.outputs.version }}_portable.exe
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error
