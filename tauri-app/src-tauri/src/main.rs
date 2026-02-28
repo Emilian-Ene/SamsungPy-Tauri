@@ -8,8 +8,85 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 const BRIDGE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py");
 const BRIDGE_SOURCE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py"));
+
+#[derive(Clone, Copy)]
+struct PythonLauncher {
+    label: &'static str,
+    program: &'static str,
+    args: &'static [&'static str],
+}
+
+fn python_launchers() -> Vec<PythonLauncher> {
+    vec![
+        PythonLauncher {
+            label: "py -3",
+            program: "py",
+            args: &["-3"],
+        },
+        PythonLauncher {
+            label: "python",
+            program: "python",
+            args: &[],
+        },
+        PythonLauncher {
+            label: "python3",
+            program: "python3",
+            args: &[],
+        },
+        PythonLauncher {
+            label: "py",
+            program: "py",
+            args: &[],
+        },
+    ]
+}
+
+fn apply_no_window(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+}
+
+fn launcher_command(launcher: PythonLauncher) -> Command {
+    let mut command = Command::new(launcher.program);
+    for arg in launcher.args {
+        command.arg(arg);
+    }
+    command.env("PYTHONUTF8", "1");
+    apply_no_window(&mut command);
+    command
+}
+
+fn launcher_has_required_modules(launcher: PythonLauncher) -> Result<bool, String> {
+    let check_script = "import importlib.util;mods=('samsung_mdc','samsungtvws');missing=[m for m in mods if importlib.util.find_spec(m) is None];print('OK' if not missing else 'MISSING:'+','.join(missing))";
+
+    let output = launcher_command(launcher)
+        .arg("-c")
+        .arg(check_script)
+        .output()
+        .map_err(|e| format!("{} start failed: {e}", launcher.label))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Err(format!(
+            "{} probe failed. stdout='{}' stderr='{}'",
+            launcher.label, stdout, stderr
+        ));
+    }
+
+    let probe = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(probe == "OK")
+}
 
 fn bridge_script_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
@@ -185,18 +262,37 @@ fn probe_port(ip: &str, port: u16, timeout_ms: u64) -> bool {
 
 fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
     let payload_str = payload.to_string();
-    let python_candidates = ["py", "python", "python3"];
     let bridge_candidates = bridge_script_candidates();
 
     let mut last_error = String::from("No Python launcher found.");
+    let launchers = python_launchers();
+    let mut preferred_launchers = Vec::new();
+    let mut launcher_diagnostics = Vec::new();
 
     let bridge_path = match bridge_candidates.into_iter().find(|path| path.exists()) {
         Some(path) => path,
         None => ensure_embedded_bridge_file()?,
     };
 
-    for python in python_candidates {
-        let output = Command::new(python)
+    for launcher in launchers.iter().copied() {
+        match launcher_has_required_modules(launcher) {
+            Ok(true) => preferred_launchers.push(launcher),
+            Ok(false) => launcher_diagnostics.push(format!(
+                "{} missing required modules (samsung_mdc and/or samsungtvws)",
+                launcher.label
+            )),
+            Err(err) => launcher_diagnostics.push(err),
+        }
+    }
+
+    let execution_order = if preferred_launchers.is_empty() {
+        launchers.clone()
+    } else {
+        preferred_launchers
+    };
+
+    for launcher in execution_order {
+        let output = launcher_command(launcher)
             .arg(&bridge_path)
             .arg(action)
             .arg(&payload_str)
@@ -214,16 +310,27 @@ fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
                 let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 if stderr.contains("ModuleNotFoundError") {
                     last_error = format!(
-                        "{python} bridge failed: missing Python dependency. stdout='{stdout}' stderr='{stderr}'"
+                        "{} bridge failed: missing Python dependency. stdout='{stdout}' stderr='{stderr}'",
+                        launcher.label
                     );
                 } else {
-                    last_error = format!("{python} bridge failed. stdout='{stdout}' stderr='{stderr}'");
+                    last_error = format!(
+                        "{} bridge failed. stdout='{stdout}' stderr='{stderr}'",
+                        launcher.label
+                    );
                 }
             }
             Err(err) => {
-                last_error = format!("Unable to start {python}: {err}");
+                last_error = format!("Unable to start {}: {err}", launcher.label);
             }
         }
+    }
+
+    if !launcher_diagnostics.is_empty() {
+        return Err(format!(
+            "{last_error}. Python diagnostics: {}",
+            launcher_diagnostics.join(" | ")
+        ));
     }
 
     Err(last_error)
