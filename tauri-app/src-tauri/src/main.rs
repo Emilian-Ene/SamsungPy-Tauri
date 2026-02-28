@@ -1,0 +1,243 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::fs;
+use std::net::{SocketAddr, TcpStream};
+use std::path::PathBuf;
+use std::process::Command;
+use std::time::Duration;
+
+const BRIDGE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py");
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SavedDevice {
+    ip: String,
+    port: u16,
+    id: i32,
+    protocol: String,
+    site: String,
+    description: String,
+}
+
+fn saved_devices_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../saved_devices.json")
+}
+
+fn normalize_protocol(value: &str) -> String {
+    match value.trim().to_uppercase().as_str() {
+        "SIGNAGE_MDC" => "SIGNAGE_MDC".to_string(),
+        "SMART_TV_WS" => "SMART_TV_WS".to_string(),
+        _ => "AUTO".to_string(),
+    }
+}
+
+fn normalize_device(input: Value) -> Result<SavedDevice, String> {
+    let ip = input
+        .get("ip")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    if ip.is_empty() {
+        return Err("IP is required".to_string());
+    }
+
+    let port = input
+        .get("port")
+        .and_then(Value::as_u64)
+        .and_then(|n| u16::try_from(n).ok())
+        .unwrap_or(1515);
+
+    let id = input
+        .get("id")
+        .and_then(Value::as_i64)
+        .and_then(|n| i32::try_from(n).ok())
+        .unwrap_or(0);
+
+    let protocol = normalize_protocol(input.get("protocol").and_then(Value::as_str).unwrap_or("AUTO"));
+    let site = input
+        .get("site")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let description = input
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    Ok(SavedDevice {
+        ip,
+        port,
+        id,
+        protocol,
+        site,
+        description,
+    })
+}
+
+fn load_saved_devices_internal() -> Result<Vec<SavedDevice>, String> {
+    let path = saved_devices_path();
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let text = fs::read_to_string(&path)
+        .map_err(|e| format!("Cannot read saved devices file {}: {e}", path.display()))?;
+    if text.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let parsed: Value =
+        serde_json::from_str(&text).map_err(|e| format!("Invalid saved_devices.json: {e}"))?;
+    let list = match parsed {
+        Value::Array(arr) => arr,
+        Value::Object(_) => vec![parsed],
+        _ => Vec::new(),
+    };
+
+    let mut out = Vec::new();
+    for item in list {
+        if let Ok(device) = normalize_device(item) {
+            out.push(device);
+        }
+    }
+    Ok(out)
+}
+
+fn save_saved_devices_internal(devices: &[SavedDevice]) -> Result<(), String> {
+    let path = saved_devices_path();
+    let json = serde_json::to_string_pretty(devices)
+        .map_err(|e| format!("Cannot serialize saved devices: {e}"))?;
+    fs::write(&path, json).map_err(|e| format!("Cannot write {}: {e}", path.display()))
+}
+
+fn probe_port(ip: &str, port: u16, timeout_ms: u64) -> bool {
+    let addr = format!("{ip}:{port}");
+    let socket: Result<SocketAddr, _> = addr.parse();
+    let Ok(socket) = socket else {
+        return false;
+    };
+    TcpStream::connect_timeout(&socket, Duration::from_millis(timeout_ms)).is_ok()
+}
+
+fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
+    let payload_str = payload.to_string();
+    let python_candidates = ["py", "python", "python3"];
+
+    let mut last_error = String::from("No Python launcher found.");
+
+    for python in python_candidates {
+        let output = Command::new(python)
+            .arg(BRIDGE_PATH)
+            .arg(action)
+            .arg(&payload_str)
+            .output();
+
+        match output {
+            Ok(out) => {
+                if out.status.success() {
+                    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    return serde_json::from_str::<Value>(&stdout)
+                        .map_err(|e| format!("Invalid JSON from bridge: {e}. Output: {stdout}"));
+                }
+
+                let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+                let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                last_error = format!("{python} bridge failed. stdout='{stdout}' stderr='{stderr}'");
+            }
+            Err(err) => {
+                last_error = format!("Unable to start {python}: {err}");
+            }
+        }
+    }
+
+    Err(last_error)
+}
+
+#[tauri::command]
+fn device_action(action: String, payload: Value) -> Result<Value, String> {
+    run_bridge(&action, &payload)
+}
+
+#[tauri::command]
+fn load_saved_devices() -> Result<Vec<SavedDevice>, String> {
+    load_saved_devices_internal()
+}
+
+#[tauri::command]
+fn upsert_saved_device(device: Value) -> Result<Vec<SavedDevice>, String> {
+    let candidate = normalize_device(device)?;
+    let mut devices = load_saved_devices_internal()?;
+
+    if let Some(existing) = devices.iter_mut().find(|d| d.ip == candidate.ip) {
+        *existing = candidate;
+    } else {
+        devices.push(candidate);
+    }
+
+    save_saved_devices_internal(&devices)?;
+    Ok(devices)
+}
+
+#[tauri::command]
+fn delete_saved_device(ip: String) -> Result<Vec<SavedDevice>, String> {
+    let mut devices = load_saved_devices_internal()?;
+    let before = devices.len();
+    devices.retain(|d| d.ip != ip.trim());
+
+    if devices.len() == before {
+        return Err("Device not found".to_string());
+    }
+
+    save_saved_devices_internal(&devices)?;
+    Ok(devices)
+}
+
+#[tauri::command]
+fn auto_probe(ip: String) -> Result<Value, String> {
+    let ip_clean = ip.trim().to_string();
+    if ip_clean.is_empty() {
+        return Err("IP is required".to_string());
+    }
+
+    let probes = [
+        (1515_u16, "SIGNAGE_MDC"),
+        (8002_u16, "SMART_TV_WS"),
+        (8001_u16, "SMART_TV_WS"),
+    ];
+
+    for (port, protocol) in probes {
+        if probe_port(&ip_clean, port, 1200) {
+            return Ok(serde_json::json!({
+                "ok": true,
+                "ip": ip_clean,
+                "port": port,
+                "protocol": protocol,
+            }));
+        }
+    }
+
+    Ok(serde_json::json!({
+        "ok": false,
+        "ip": ip_clean,
+        "error": "No supported control ports reachable (1515/8002/8001)",
+    }))
+}
+
+fn main() {
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            device_action,
+            load_saved_devices,
+            upsert_saved_device,
+            delete_saved_device,
+            auto_probe
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

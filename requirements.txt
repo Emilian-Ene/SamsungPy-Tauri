@@ -1,0 +1,2 @@
+python-samsung-mdc
+samsungtvws
