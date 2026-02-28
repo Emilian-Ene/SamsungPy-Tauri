@@ -841,6 +841,99 @@ async function runConnectionTest() {
     return result;
   }
 
+  let tauriProbeError = null;
+  try {
+    const probe = await invoke('auto_probe', { ip });
+    if (probe?.ok) {
+      $('port').value = Number(probe.port);
+      $('protocol').value = probe.protocol;
+
+      const statusPayload = {
+        ip,
+        port: Number(probe.port),
+        display_id: Number($('displayId').value || 0),
+        protocol: probe.protocol,
+        timeout_s: 25,
+      };
+
+      try {
+        const statusCheck = await invoke('device_action', {
+          action: 'status',
+          payload: statusPayload,
+        });
+
+        if (statusCheck?.ok) {
+          const message = `🟢 Tauri bridge online | Screen online (${ip}) | Ready to send commands.`;
+          const result = {
+            ok: true,
+            healthState: 'online',
+            message,
+            backend: 'tauri',
+            backendOnline: true,
+            screenOnline: true,
+            commandReady: true,
+            ip,
+            protocol: probe.protocol,
+            port: probe.port,
+          };
+          setQuickOutputLine(message, 'online');
+          logLine(
+            `Test: tauri bridge online, screen online, command test passed (${ip})`,
+          );
+          renderOutput(result);
+          return result;
+        }
+
+        const statusError = statusCheck?.error || 'Unknown status error';
+        const message = `🟡 Tauri bridge online | Screen responds on port, but command test failed (${ip})`;
+        const result = {
+          ok: false,
+          healthState: 'warn',
+          message,
+          warning:
+            'tauri bridge online, tv reachable, command channel not ready',
+          backend: 'tauri',
+          error: String(statusError),
+          backendOnline: true,
+          screenOnline: true,
+          commandReady: false,
+          ip,
+        };
+        setQuickOutputLine(message, 'warn');
+        logLine(
+          `Test: tauri bridge online, screen port reachable, but status command failed (${ip}) - ${String(statusError)}`,
+        );
+        renderOutput(result);
+        return result;
+      } catch (error) {
+        const message = `🟡 Tauri bridge online | Screen port open, but command check timed out (${ip})`;
+        const result = {
+          ok: false,
+          healthState: 'warn',
+          message,
+          warning: 'tauri bridge online, tv reachable, command timeout',
+          backend: 'tauri',
+          error: stringifyError(error),
+          backendOnline: true,
+          screenOnline: true,
+          commandReady: false,
+          ip,
+        };
+        setQuickOutputLine(message, 'warn');
+        logLine(
+          `Test: tauri bridge online, screen port reachable, but command check timeout (${ip}) - ${stringifyError(error)}`,
+        );
+        renderOutput(result);
+        return result;
+      }
+    }
+  } catch (error) {
+    tauriProbeError = stringifyError(error);
+    logLine(
+      `Test: tauri bridge probe failed for ${ip} (${tauriProbeError}); falling back to web backend`,
+    );
+  }
+
   let backendHealth = null;
   try {
     backendHealth = await fetchJsonWithTimeout(
@@ -854,6 +947,7 @@ async function runConnectionTest() {
       healthState: 'offline',
       message,
       error: stringifyError(error),
+      tauriError: tauriProbeError || undefined,
       backendOnline: false,
       screenOnline: false,
       ip,

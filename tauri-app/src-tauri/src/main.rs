@@ -17,6 +17,52 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const BRIDGE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py");
 const BRIDGE_SOURCE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py"));
 
+fn bridge_binary_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join("bridge_runtime").join("bridge.exe"));
+            candidates.push(exe_dir.join("bridge.exe"));
+            candidates.push(
+                exe_dir
+                    .join("resources")
+                    .join("bridge_runtime")
+                    .join("bridge.exe"),
+            );
+            candidates.push(exe_dir.join("resources").join("bridge.exe"));
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("Resources")
+                    .join("bridge_runtime")
+                    .join("bridge.exe"),
+            );
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("Resources")
+                    .join("bridge.exe"),
+            );
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("py").join("bridge_runtime").join("bridge.exe"));
+        candidates.push(cwd.join("bridge_runtime").join("bridge.exe"));
+        candidates.push(cwd.join("bridge.exe"));
+    }
+
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        if !unique.iter().any(|existing: &PathBuf| existing == &candidate) {
+            unique.push(candidate);
+        }
+    }
+
+    unique
+}
+
 #[derive(Clone, Copy)]
 struct PythonLauncher {
     label: &'static str,
@@ -262,9 +308,49 @@ fn probe_port(ip: &str, port: u16, timeout_ms: u64) -> bool {
 
 fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
     let payload_str = payload.to_string();
+    let bridge_binary = bridge_binary_candidates()
+        .into_iter()
+        .find(|path| path.exists() && path.is_file());
+
+    if let Some(bridge_exe) = bridge_binary {
+        let output = {
+            let mut command = Command::new(&bridge_exe);
+            apply_no_window(&mut command);
+            command.arg(action).arg(&payload_str).output()
+        };
+
+        match output {
+            Ok(out) => {
+                if out.status.success() {
+                    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    return serde_json::from_str::<Value>(&stdout).map_err(|e| {
+                        format!(
+                            "Invalid JSON from bundled bridge.exe: {e}. Output: {stdout}"
+                        )
+                    });
+                }
+
+                let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+                let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                return Err(format!(
+                    "Bundled bridge.exe failed at {}. stdout='{}' stderr='{}'",
+                    bridge_exe.display(),
+                    stdout,
+                    stderr
+                ));
+            }
+            Err(err) => {
+                return Err(format!(
+                    "Unable to start bundled bridge.exe at {}: {err}",
+                    bridge_exe.display()
+                ));
+            }
+        }
+    }
+
     let bridge_candidates = bridge_script_candidates();
 
-    let mut last_error = String::from("No Python launcher found.");
+    let mut last_error = String::from("Bundled bridge.exe not found and no Python launcher available.");
     let launchers = python_launchers();
     let mut preferred_launchers = Vec::new();
     let mut launcher_diagnostics = Vec::new();

@@ -40,6 +40,28 @@ jobs:
         working-directory: tauri-app
         run: npm ci --include=dev
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build bundled Python bridge
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+          rm -rf tauri-app/py/build tauri-app/py/dist
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onefile \
+            --name bridge \
+            --distpath tauri-app/py/dist \
+            --workpath tauri-app/py/build \
+            tauri-app/py/bridge.py
+          mkdir -p tauri-app/py/bridge_runtime
+          cp tauri-app/py/dist/bridge.exe tauri-app/py/bridge_runtime/bridge.exe
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
