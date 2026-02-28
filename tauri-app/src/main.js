@@ -1,4 +1,3 @@
-import './styles.css';
 import { invoke } from '@tauri-apps/api/core';
 import { Notyf } from 'notyf';
 import 'notyf/notyf.min.css';
@@ -255,6 +254,17 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
       }
 
       persistDeviceSelectionState();
+    });
+
+    item.addEventListener('click', () => {
+      const result = applySelectedDevice(device.ip);
+      renderOutput(result);
+      if (!result.ok) {
+        showToast(
+          `Select: ${stringifyError(result.error || 'failed')}`,
+          'error',
+        );
+      }
     });
 
     openBtn.addEventListener('click', () => {
@@ -614,6 +624,75 @@ function readConnection() {
   };
 }
 
+function setQuickOutputLine(summary, healthState) {
+  const quickBox = $('quickOutputLine');
+  if (!quickBox) {
+    return;
+  }
+
+  quickBox.textContent = String(summary ?? '');
+  if (healthState) {
+    quickBox.dataset.health = healthState;
+  } else {
+    delete quickBox.dataset.health;
+  }
+}
+
+function buildHumanQuickMessage(payload) {
+  const action = String(payload?.action || '').trim();
+  const data = payload?.data;
+
+  if (action === 'status' && data?.status && typeof data.status === 'object') {
+    const status = data.status;
+    return `Status - Power: ${status.power ?? 'N/A'}, Volume: ${status.volume ?? 'N/A'}, Mute: ${status.mute ?? 'N/A'}, Input: ${status.input_source ?? 'N/A'}, Aspect: ${status.picture_aspect ?? 'N/A'}`;
+  }
+
+  if (action === 'power') {
+    return `Power command sent: ${data?.state ?? 'OK'}`;
+  }
+
+  if (action === 'set_volume') {
+    return `Volume set to ${data?.value ?? 'N/A'}`;
+  }
+
+  if (action === 'set_brightness') {
+    return `Brightness set to ${data?.value ?? 'N/A'}`;
+  }
+
+  if (action === 'set_mute') {
+    return `Mute set to ${data?.state ?? 'N/A'}`;
+  }
+
+  if (action === 'set_input') {
+    return `Input source set to ${data?.source ?? 'N/A'}`;
+  }
+
+  if (action === 'cli_get') {
+    const command = data?.command ?? payload?.command ?? 'command';
+    const result = data?.result;
+    if (
+      typeof result === 'string' &&
+      result.trim() &&
+      result.length <= 48 &&
+      !/[\{\}\[\]]/.test(result)
+    ) {
+      return `Read ${command} successful: ${result}`;
+    }
+    return `Read ${command} successful`;
+  }
+
+  if (action === 'cli_set') {
+    const command = data?.command ?? payload?.command ?? 'command';
+    return `Set ${command} successful`;
+  }
+
+  if (action === 'auto_probe') {
+    return `Auto probe completed`;
+  }
+
+  return null;
+}
+
 function renderOutput(payload) {
   const outputText = JSON.stringify(payload, null, 2);
   const targets = ['output', 'outputWs'];
@@ -642,8 +721,10 @@ function renderOutput(payload) {
                   ? '[OK]'
                   : '[ERROR]'
                 : '';
+      const humanMessage = payload.ok ? buildHumanQuickMessage(payload) : null;
       const actionName = payload.action ? `${payload.action}: ` : '';
       const message =
+        humanMessage ||
         payload.message ||
         payload.error ||
         payload.warning ||
@@ -657,8 +738,286 @@ function renderOutput(payload) {
     } else {
       summary = String(payload ?? '');
     }
-    quickBox.textContent = summary;
+    setQuickOutputLine(summary, payload?.healthState || null);
   }
+}
+
+async function fetchJsonWithTimeout(url, timeoutMs = 3500) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+
+    const text = await response.text();
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (_parseError) {
+        data = null;
+      }
+    }
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      data,
+      raw: text,
+    };
+  } catch (error) {
+    if (timedOut) {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function postJsonWithTimeout(url, body, timeoutMs = 5500) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await response.text();
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (_parseError) {
+        data = null;
+      }
+    }
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      data,
+      raw: text,
+    };
+  } catch (error) {
+    if (timedOut) {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function runConnectionTest() {
+  const { ip } = readConnection();
+  if (!ip) {
+    const error = 'IP is required before running Test.';
+    const result = {
+      ok: false,
+      healthState: 'offline',
+      message: `🔴 Backend unknown | Screen unknown. ${error}`,
+      error,
+    };
+    setQuickOutputLine(result.message, result.healthState);
+    logLine(`Test: ${error}`);
+    return result;
+  }
+
+  let backendHealth = null;
+  try {
+    backendHealth = await fetchJsonWithTimeout(
+      `${WEB_BACKEND_URL}/health`,
+      2500,
+    );
+  } catch (error) {
+    const message = `🔴 Backend offline | Screen not tested (${stringifyError(error)})`;
+    const result = {
+      ok: false,
+      healthState: 'offline',
+      message,
+      error: stringifyError(error),
+      backendOnline: false,
+      screenOnline: false,
+      ip,
+    };
+    setQuickOutputLine(message, 'offline');
+    logLine(`Test: backend offline; screen check skipped for ${ip}`);
+    renderOutput(result);
+    return result;
+  }
+
+  if (!backendHealth.ok || !backendHealth.data?.ok) {
+    const backendError =
+      backendHealth.data?.error ||
+      backendHealth.raw ||
+      `HTTP ${backendHealth.status}`;
+    const message = `🔴 Backend offline | Screen not tested (${backendError})`;
+    const result = {
+      ok: false,
+      healthState: 'offline',
+      message,
+      error: String(backendError),
+      backendOnline: false,
+      screenOnline: false,
+      ip,
+    };
+    setQuickOutputLine(message, 'offline');
+    logLine(
+      `Test: backend offline (${backendError}); screen check skipped for ${ip}`,
+    );
+    renderOutput(result);
+    return result;
+  }
+
+  let probe = null;
+  try {
+    probe = await fetchJsonWithTimeout(
+      `${WEB_BACKEND_URL}/auto_probe?ip=${encodeURIComponent(ip)}`,
+      4000,
+    );
+  } catch (error) {
+    const message = `🟡 Backend online | Screen offline (${stringifyError(error)})`;
+    const result = {
+      ok: false,
+      healthState: 'warn',
+      message,
+      warning: 'backend online, tv offline',
+      error: stringifyError(error),
+      backendOnline: true,
+      screenOnline: false,
+      ip,
+    };
+    setQuickOutputLine(message, 'warn');
+    logLine(`Test: backend online, screen offline (${ip})`);
+    renderOutput(result);
+    return result;
+  }
+
+  if (probe.ok && probe.data?.ok) {
+    $('port').value = Number(probe.data.port);
+    $('protocol').value = probe.data.protocol;
+
+    const statusPayload = {
+      ip,
+      port: Number(probe.data.port),
+      display_id: Number($('displayId').value || 0),
+      protocol: probe.data.protocol,
+    };
+
+    try {
+      const statusCheck = await postJsonWithTimeout(
+        `${WEB_BACKEND_URL}/device_action`,
+        {
+          action: 'status',
+          payload: {
+            ...statusPayload,
+            timeout_s: 25,
+          },
+        },
+        30000,
+      );
+
+      if (statusCheck.ok && statusCheck.data?.ok) {
+        const message = `🟢 Backend online | Screen online (${ip}) | Ready to send commands.`;
+        const result = {
+          ok: true,
+          healthState: 'online',
+          message,
+          backendOnline: true,
+          screenOnline: true,
+          commandReady: true,
+          ip,
+          protocol: probe.data.protocol,
+          port: probe.data.port,
+        };
+        setQuickOutputLine(message, 'online');
+        logLine(
+          `Test: backend online, screen online, command test passed (${ip})`,
+        );
+        renderOutput(result);
+        return result;
+      }
+
+      const statusError =
+        statusCheck.data?.error ||
+        statusCheck.raw ||
+        `HTTP ${statusCheck.status}`;
+      const message = `🟡 Backend online | Screen responds on port, but command test failed (${ip})`;
+      const result = {
+        ok: false,
+        healthState: 'warn',
+        message,
+        warning: 'backend online, tv reachable, command channel not ready',
+        error: String(statusError),
+        backendOnline: true,
+        screenOnline: true,
+        commandReady: false,
+        ip,
+      };
+      setQuickOutputLine(message, 'warn');
+      logLine(
+        `Test: backend online, screen port reachable, but status command failed (${ip}) - ${String(statusError)}`,
+      );
+      renderOutput(result);
+      return result;
+    } catch (error) {
+      const message = `🟡 Backend online | Screen port open, but command check timed out (${ip})`;
+      const result = {
+        ok: false,
+        healthState: 'warn',
+        message,
+        warning: 'backend online, tv reachable, command timeout',
+        error: stringifyError(error),
+        backendOnline: true,
+        screenOnline: true,
+        commandReady: false,
+        ip,
+      };
+      setQuickOutputLine(message, 'warn');
+      logLine(
+        `Test: backend online, screen port reachable, but command check timeout (${ip}) - ${stringifyError(error)}`,
+      );
+      renderOutput(result);
+      return result;
+    }
+  }
+
+  const probeError = probe.data?.error || probe.raw || `HTTP ${probe.status}`;
+  const message = `🟡 Backend online | Screen offline (${ip})`;
+  const result = {
+    ok: false,
+    healthState: 'warn',
+    message,
+    warning: 'backend online, tv offline',
+    error: String(probeError),
+    backendOnline: true,
+    screenOnline: false,
+    ip,
+  };
+  setQuickOutputLine(message, 'warn');
+  logLine(
+    `Test: backend online, screen offline (${ip}) - ${String(probeError)}`,
+  );
+  renderOutput(result);
+  return result;
 }
 
 function effectiveProtocol() {
@@ -669,6 +1028,16 @@ function effectiveProtocol() {
 
   const port = Number($('port').value);
   return port === 1515 ? 'SIGNAGE_MDC' : 'SMART_TV_WS';
+}
+
+function getActionTimeoutMs(action) {
+  if (action === 'status' || action === 'cli_get' || action === 'cli_set') {
+    return 25000;
+  }
+  if (WRITE_ACTIONS.has(action)) {
+    return 20000;
+  }
+  return 15000;
 }
 
 function parseManualCliArgs() {
@@ -936,7 +1305,12 @@ function bindButtonAction(buttonId, action) {
 }
 
 async function callAction(action, data = {}) {
-  const payload = { ...readConnection(), ...data };
+  const timeoutMs = getActionTimeoutMs(action);
+  const payload = {
+    ...readConnection(),
+    ...data,
+    timeout_s: Math.ceil(timeoutMs / 1000),
+  };
   logLine(
     `Action '${action}' sent to ${payload.ip}:${payload.port} (${payload.protocol})`,
   );
@@ -964,21 +1338,14 @@ async function callAction(action, data = {}) {
   }
 
   try {
-    const response = await fetch(`${WEB_BACKEND_URL}/device_action`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, payload }),
-    });
+    const response = await postJsonWithTimeout(
+      `${WEB_BACKEND_URL}/device_action`,
+      { action, payload },
+      timeoutMs + 5000,
+    );
 
-    const rawBody = await response.text();
-    let dataResponse = null;
-    if (rawBody) {
-      try {
-        dataResponse = JSON.parse(rawBody);
-      } catch (_parseError) {
-        dataResponse = null;
-      }
-    }
+    const rawBody = response.raw;
+    let dataResponse = response.data;
 
     if (!response.ok) {
       const backendError =
@@ -1019,13 +1386,27 @@ async function callAction(action, data = {}) {
     return normalized;
   } catch (error) {
     const errorText = String(error);
+    const backendUnavailable =
+      /(failed to fetch|connection refused|econnrefused|err_connection_refused|networkerror|enotfound|backend unavailable)/i.test(
+        errorText,
+      );
+    const deviceTimeoutOrUnreachable =
+      /(winerror\s*121|semaphore timeout|connect timeout|response header read timeout|timed?\s*out|timeout)/i.test(
+        errorText,
+      );
     const writeTimeoutNoAck =
-      WRITE_ACTIONS.has(action) && /(timed?\s*out|timeout)/i.test(errorText);
+      WRITE_ACTIONS.has(action) && deviceTimeoutOrUnreachable;
     const likelySentButFailed =
       WRITE_ACTIONS.has(action) &&
+      !deviceTimeoutOrUnreachable &&
       /(HTTP\s+5\d\d|connection reset|broken pipe|remote end closed connection)/i.test(
         errorText,
       );
+    const healthState = backendUnavailable
+      ? 'offline'
+      : deviceTimeoutOrUnreachable
+        ? 'warn'
+        : 'warn';
 
     logLine(`Action '${action}' failed: ${errorText}`);
     if (likelySentButFailed) {
@@ -1037,7 +1418,15 @@ async function callAction(action, data = {}) {
         `Action '${action}' timed out waiting for ACK; device may still have applied the command.`,
       );
     }
-    logLine(`Tip: start web backend with 'py py/web_backend.py' in tauri-app`);
+    if (backendUnavailable) {
+      logLine(
+        `Tip: start web backend with 'py py/web_backend.py' in tauri-app`,
+      );
+    } else if (deviceTimeoutOrUnreachable) {
+      logLine(
+        `Tip: backend is online but device is not reachable in time (check network/VPN route/firewall).`,
+      );
+    }
     const failed = {
       ok: false,
       action,
@@ -1045,46 +1434,126 @@ async function callAction(action, data = {}) {
       error: errorText,
       nak: detectNak(errorText),
       ack: false,
+      healthState,
+      backendOnline: !backendUnavailable,
+      screenOnline: backendUnavailable ? false : undefined,
       noAck: writeTimeoutNoAck,
       maybeSent: likelySentButFailed,
       message: writeTimeoutNoAck
-        ? 'No ACK received from device (command may still be applied).'
+        ? 'Backend online, but no ACK from device (network timeout/unreachable).'
         : likelySentButFailed
           ? 'Sent to device; backend response failed (state may have changed).'
-          : undefined,
+          : backendUnavailable
+            ? 'Backend offline or unreachable.'
+            : deviceTimeoutOrUnreachable
+              ? 'Backend online, but device timed out/unreachable.'
+              : undefined,
     };
     renderOutput(failed);
     return failed;
   }
 }
 
-async function saveCurrentDevice() {
+function requireSignageProtocol(actionLabel) {
+  if (effectiveProtocol() === 'SIGNAGE_MDC') {
+    return null;
+  }
+
+  return {
+    ok: false,
+    error: `${actionLabel} is signage-only. Set Protocol to SIGNAGE_MDC (or AUTO + port 1515).`,
+  };
+}
+
+async function addCurrentDevice() {
   const payload = readConnection();
-  if (!payload.ip) {
+  const ip = String(payload.ip || '').trim();
+  if (!ip) {
     const error = 'IP is required';
-    logLine(`Save failed: ${error}`);
+    logLine(`Add device failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  const exists = savedDevices.some((item) => item.ip === ip);
+  if (exists) {
+    const error = `${ip} already exists. Select it and use Update.`;
+    logLine(`Add device skipped: ${error}`);
     return { ok: false, error };
   }
 
   try {
     const { list, source } = await upsertSavedDeviceAny({
-      ip: payload.ip,
+      ip,
       port: payload.port,
       id: payload.display_id,
       protocol: payload.protocol,
       site: payload.site,
       description: payload.description,
     });
-    renderSavedDevices(list, payload.ip);
-    logLine(`Saved device ${payload.ip} (${source})`);
+    renderSavedDevices(list, ip);
+    logLine(`Added device ${ip} (${source})`);
+    return { ok: true, message: `added ${ip}`, ip, source };
+  } catch (error) {
+    logLine(`Add device failed: ${String(error)}`);
+    return { ok: false, error: String(error) };
+  }
+}
+
+async function saveCurrentDevice() {
+  const payload = readConnection();
+  if (!selectedSavedDeviceIp) {
+    const error =
+      'No selected device to update. Use Add Device flow to create a new device.';
+    logLine(`Update failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  const selected = savedDevices.find(
+    (item) => item.ip === selectedSavedDeviceIp,
+  );
+  if (!selected) {
+    const error = `Selected device ${selectedSavedDeviceIp} not found.`;
+    logLine(`Update failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  const nextIp = String(payload.ip || '').trim();
+  if (!nextIp) {
+    const error = 'IP is required';
+    logLine(`Update failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  try {
+    if (nextIp !== selectedSavedDeviceIp) {
+      await deleteSavedDeviceAny(selectedSavedDeviceIp);
+    }
+
+    const { list, source } = await upsertSavedDeviceAny({
+      ip: nextIp,
+      port: payload.port,
+      id: payload.display_id,
+      protocol: payload.protocol,
+      site: payload.site,
+      description: payload.description,
+    });
+    renderSavedDevices(list, nextIp);
+    logLine(
+      nextIp === selectedSavedDeviceIp
+        ? `Updated device ${selectedSavedDeviceIp} (${source})`
+        : `Updated device ${selectedSavedDeviceIp} -> ${nextIp} (${source})`,
+    );
     return {
       ok: true,
-      message: `saved ${payload.ip}`,
-      ip: payload.ip,
+      message:
+        nextIp === selectedSavedDeviceIp
+          ? `updated ${selectedSavedDeviceIp}`
+          : `updated ${selectedSavedDeviceIp} -> ${nextIp}`,
+      ip: nextIp,
       source,
     };
   } catch (error) {
-    logLine(`Save device failed: ${String(error)}`);
+    logLine(`Update device failed: ${String(error)}`);
     return { ok: false, error: String(error) };
   }
 }
@@ -1336,7 +1805,35 @@ async function runCliSet() {
   });
 }
 
+async function runSetVolume() {
+  const blocked = requireSignageProtocol('Set Volume');
+  if (blocked) {
+    logLine(blocked.error);
+    return blocked;
+  }
+
+  return await callAction('set_volume', { value: Number($('volume').value) });
+}
+
+async function runSetBrightness() {
+  const blocked = requireSignageProtocol('Set Brightness');
+  if (blocked) {
+    logLine(blocked.error);
+    return blocked;
+  }
+
+  return await callAction('set_brightness', {
+    value: Number($('brightness').value),
+  });
+}
+
 async function runSetInput() {
+  const blocked = requireSignageProtocol('Set Input');
+  if (blocked) {
+    logLine(blocked.error);
+    return blocked;
+  }
+
   const source = $('inputSource').value;
   const validation = validateInputSourceSelection(source);
   if (!validation.ok) {
@@ -1397,20 +1894,18 @@ async function sendHdmiMacro(hdmi) {
 }
 
 bindButtonAction('btnStatus', () => callAction('status'));
+bindButtonAction('btnTestConnection', runConnectionTest);
 bindButtonAction('btnPowerOn', () => callAction('power', { state: 'ON' }));
 bindButtonAction('btnPowerOff', () => callAction('power', { state: 'OFF' }));
 bindButtonAction('btnReboot', () => callAction('power', { state: 'REBOOT' }));
-bindButtonAction('btnSetVolume', () =>
-  callAction('set_volume', { value: Number($('volume').value) }),
-);
-bindButtonAction('btnSetBrightness', () =>
-  callAction('set_brightness', { value: Number($('brightness').value) }),
-);
+bindButtonAction('btnSetVolume', runSetVolume);
+bindButtonAction('btnSetBrightness', runSetBrightness);
 bindButtonAction('btnSetMute', () =>
   callAction('set_mute', { state: $('mute').value }),
 );
 bindButtonAction('btnSetInput', runSetInput);
 bindButtonAction('btnLoadDevices', refreshSavedDevices);
+bindButtonAction('btnAddDevice', addCurrentDevice);
 bindButtonAction('btnSaveDevice', saveCurrentDevice);
 bindButtonAction('btnDeleteDevice', deleteCheckedDevices);
 bindButtonAction('btnClearCheckedDevices', clearCheckedDevices);

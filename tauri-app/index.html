@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Samsung Tauri Dashboard</title>
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
     <main class="app">
@@ -50,7 +51,7 @@
           </div>
           <div class="actions connection-actions">
             <button id="btnLoadDevices">Refresh Devices</button>
-            <button id="btnSaveDevice">Save/Update</button>
+            <button id="btnSaveDevice">Update</button>
             <button id="btnAutoProbe">Auto Probe</button>
             <button id="btnDeleteDevice" class="connection-action-end">
               Delete Selected
@@ -73,7 +74,10 @@
 
       <div id="pageControls" class="workflow-page" data-page="controls">
         <section class="card">
-          <h2>Actions</h2>
+          <div class="actions-title-row">
+            <h2>Actions</h2>
+            <button id="btnTestConnection">Test</button>
+          </div>
           <div class="action-layout">
             <div class="action-group power-status-group">
               <h3>Power & Status</h3>
@@ -145,7 +149,7 @@
         </section>
 
         <section class="card">
-          <h2>NDC Comands</h2>
+          <h2>CLI Comands</h2>
           <div class="actions">
             <label
               >MDC Command

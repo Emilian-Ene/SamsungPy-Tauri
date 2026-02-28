@@ -56,6 +56,9 @@ SMART_TV_HDMI_MACROS = {
     "HDMI4": ["KEY_SOURCE", "KEY_RIGHT", "KEY_RIGHT", "KEY_RIGHT", "KEY_ENTER"],
 }
 TIMER_INDEXED_COMMANDS = {"timer_13", "timer_15"}
+DEFAULT_TIMEOUT_SECONDS = 20.0
+MIN_TIMEOUT_SECONDS = 3.0
+MAX_TIMEOUT_SECONDS = 60.0
 
 
 def _field_placeholder(field) -> str:
@@ -191,6 +194,26 @@ def resolve_protocol(protocol: str, port: int) -> str:
     if normalized in ("SIGNAGE_MDC", "SMART_TV_WS"):
         return normalized
     return "SIGNAGE_MDC" if int(port) == 1515 else "SMART_TV_WS"
+
+
+def resolve_action_timeout(action: str, payload: dict) -> float:
+    explicit_timeout = payload.get("timeout_s")
+    if explicit_timeout is not None:
+        try:
+            timeout = float(explicit_timeout)
+            if timeout < MIN_TIMEOUT_SECONDS:
+                return MIN_TIMEOUT_SECONDS
+            if timeout > MAX_TIMEOUT_SECONDS:
+                return MAX_TIMEOUT_SECONDS
+            return timeout
+        except Exception:
+            pass
+
+    if action in {"status", "cli_get", "cli_set"}:
+        return 25.0
+    if action in {"power", "set_volume", "set_brightness", "set_mute", "set_input"}:
+        return 20.0
+    return DEFAULT_TIMEOUT_SECONDS
 
 
 async def do_signage_action(action: str, payload: dict):
@@ -356,7 +379,16 @@ async def main_async(action: str, payload: dict):
 
     protocol = resolve_protocol(payload.get("protocol", "AUTO"), int(payload.get("port", 1515)))
     if protocol == "SIGNAGE_MDC":
-        data = await do_signage_action(action, payload)
+        timeout_seconds = resolve_action_timeout(action, payload)
+        try:
+            data = await asyncio.wait_for(
+                do_signage_action(action, payload),
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError as exc:
+            raise RuntimeError(
+                f"MDC action timeout after {timeout_seconds:.1f}s"
+            ) from exc
     else:
         data = do_smart_tv_action(action, payload)
     return {"ok": True, "protocol": protocol, "data": data}

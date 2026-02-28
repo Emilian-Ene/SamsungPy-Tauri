@@ -59,6 +59,21 @@ body {
   margin: 0 0 14px;
 }
 
+.actions-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.actions-title-row h2 {
+  margin: 0;
+}
+
+.actions-title-row #btnTestConnection {
+  margin-left: auto;
+}
+
 .card h3 {
   margin: 0 0 10px;
   font-size: 16px;
@@ -193,11 +208,14 @@ button.btn-error {
 }
 
 .saved-device-item {
+  display: flex;
+  align-items: center;
   min-width: 0;
   text-align: left;
   background: #374151;
   border-radius: 8px;
-  padding: 10px 12px;
+  min-height: 40px;
+  padding: 0 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -219,7 +237,8 @@ button.btn-error {
 }
 
 .saved-device-row-btn {
-  padding: 8px 10px;
+  min-height: 40px;
+  padding: 0 12px;
   white-space: nowrap;
   flex: 0 0 auto;
 }
@@ -261,6 +280,24 @@ button.btn-error {
   min-height: 20px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+#quickOutputLine[data-health='online'] {
+  background: #0f2d1f;
+  border-color: #16a34a;
+  color: #dcfce7;
+}
+
+#quickOutputLine[data-health='warn'] {
+  background: #33270f;
+  border-color: #f59e0b;
+  color: #fef3c7;
+}
+
+#quickOutputLine[data-health='offline'] {
+  background: #341316;
+  border-color: #ef4444;
+  color: #fee2e2;
 }
 
 .control-row {
