@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   font-family:
     Segoe UI,
@@ -7,37 +11,125 @@
 
 body {
   margin: 0;
-  background: #111827;
-  color: #f3f4f6;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(41, 87, 255, 0.14), transparent 34%),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(9, 133, 255, 0.12),
+      transparent 38%
+    ),
+    #080d16;
+  color: #e6edf7;
+  min-height: 100vh;
+}
+
+.dashboard-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.sidebar {
+  border-right: 1px solid #1c2432;
+  background: linear-gradient(180deg, #0b1220 0%, #090f1c 100%);
+  padding: 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 12px;
+}
+
+.brand-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #35c7ff;
+  box-shadow: 0 0 18px rgba(53, 199, 255, 0.7);
+}
+
+.brand-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #69dcff;
+}
+
+.brand-subtitle {
+  font-size: 12px;
+  color: #8798b8;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar-note {
+  margin-top: auto;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #91a4c8;
+  background: #0f1727;
+  border: 1px solid #1c2941;
 }
 
 .app {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 24px;
+  padding: 18px 20px 20px;
 }
 
-.page-nav {
-  display: flex;
-  flex-wrap: wrap;
+.topbar {
+  display: grid;
+  grid-template-columns: max-content minmax(220px, 360px) minmax(220px, 1fr);
+  gap: 12px;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 16px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  color: #f3f8ff;
+}
+
+.topbar-search-wrap {
+  display: flex;
+}
+
+.topbar-search-wrap input {
+  width: 100%;
+  opacity: 0.92;
 }
 
 .page-nav-right {
-  margin-left: auto;
   display: flex;
+  justify-content: end;
   gap: 10px;
   flex-wrap: wrap;
 }
 
 .page-tab {
-  background: #374151;
+  background: #111b2c;
+  color: #a9bad7;
+  border: 1px solid #1f2e47;
+  text-align: left;
+  font-weight: 600;
 }
 
 .page-tab.active {
-  background: #2563eb;
+  background: linear-gradient(180deg, #1a4f8b 0%, #133f71 100%);
+  color: #d9efff;
+  border-color: #2860a0;
+}
+
+.mobile-only {
+  display: none;
 }
 
 .workflow-page {
@@ -49,14 +141,20 @@ body {
 }
 
 .card {
-  background: #1f2937;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
+  background: linear-gradient(180deg, #0f1828 0%, #0c1422 100%);
+  border: 1px solid #1f2a3d;
+  border-radius: 14px;
+  padding: 16px 16px 14px;
+  margin-bottom: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 26px rgba(3, 8, 17, 0.52);
 }
 
 .card h2 {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
+  font-size: 24px;
+  color: #f0f5ff;
 }
 
 .actions-title-row {
@@ -77,7 +175,7 @@ body {
 .card h3 {
   margin: 0 0 10px;
   font-size: 16px;
-  color: #dbeafe;
+  color: #cbe2ff;
 }
 
 .grid {
@@ -96,20 +194,20 @@ label {
 input,
 select,
 button {
-  border: none;
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 10px 12px;
   font-size: 14px;
+  border: 1px solid #27354d;
 }
 
 input,
 select {
-  background: #374151;
-  color: #fff;
+  background: #0f1a2c;
+  color: #f3f8ff;
 }
 
 button {
-  background: #2563eb;
+  background: linear-gradient(180deg, #2764df 0%, #1f4eb3 100%);
   color: #fff;
   cursor: pointer;
   transition:
@@ -120,9 +218,9 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #3b82f6;
+  background: linear-gradient(180deg, #3075fb 0%, #2460d0 100%);
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.26);
+  box-shadow: 0 8px 20px rgba(45, 118, 255, 0.28);
 }
 
 button:active:not(:disabled) {
@@ -171,8 +269,8 @@ button.btn-error {
 }
 
 .saved-device-list-wrap {
-  background: #111827;
-  border: 1px solid #2c3748;
+  background: #0b1422;
+  border: 1px solid #1f2e47;
   border-radius: 10px;
   padding: 12px;
 }
@@ -212,7 +310,7 @@ button.btn-error {
   align-items: center;
   min-width: 0;
   text-align: left;
-  background: #374151;
+  background: #111e33;
   border-radius: 8px;
   min-height: 40px;
   padding: 0 12px;
@@ -222,11 +320,11 @@ button.btn-error {
 }
 
 .saved-device-item.active {
-  background: #2563eb;
+  background: #2256c4;
 }
 
 .saved-device-row.active .saved-device-item {
-  background: #2563eb;
+  background: #2256c4;
 }
 
 .saved-device-row-actions {
@@ -255,8 +353,8 @@ button.btn-error {
 }
 
 .action-group {
-  background: #111827;
-  border: 1px solid #2c3748;
+  background: #0a1422;
+  border: 1px solid #1d2d47;
   border-radius: 10px;
   padding: 12px;
 }
@@ -273,8 +371,8 @@ button.btn-error {
 
 #quickOutputLine {
   margin: auto 0 0;
-  background: #0b1734;
-  border: 1px solid #2c3748;
+  background: #081324;
+  border: 1px solid #1d2e48;
   border-radius: 8px;
   padding: 10px 12px;
   min-height: 20px;
@@ -318,7 +416,7 @@ button.btn-error {
 }
 
 #cliArgsCard {
-  background: #111827;
+  background: #0b1321;
   margin-top: 8px;
 }
 
@@ -341,7 +439,8 @@ button.btn-error {
 
 #output,
 #outputWs {
-  background: #111827;
+  background: #091322;
+  border: 1px solid #1d2c47;
   border-radius: 8px;
   padding: 12px;
   min-height: 160px;
@@ -350,7 +449,8 @@ button.btn-error {
 
 #commandLog,
 #commandLogWs {
-  background: #111827;
+  background: #091322;
+  border: 1px solid #1d2c47;
   border-radius: 8px;
   padding: 12px;
   min-height: 140px;
@@ -364,7 +464,7 @@ button.btn-error {
 
 .notyf__toast {
   border-radius: 12px;
-  border: 1px solid #374151;
+  border: 1px solid #2a3b59;
   min-width: 280px;
   max-width: 420px;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
@@ -397,6 +497,27 @@ button.btn-error {
 }
 
 @media (max-width: 860px) {
+  .dashboard-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .page-nav-right {
+    justify-content: start;
+  }
+
+  .mobile-only {
+    display: inline-flex;
+    margin-bottom: 12px;
+  }
+
   .grid {
     grid-template-columns: 1fr;
   }

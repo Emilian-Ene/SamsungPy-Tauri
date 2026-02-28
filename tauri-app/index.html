@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="night">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,220 +7,257 @@
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <main class="app">
-      <h1>Samsung Hybrid Control</h1>
-
-      <div class="page-nav" role="tablist" aria-label="Workflows">
-        <button
-          id="btnPageConnection"
-          class="page-tab active"
-          data-page-target="connection"
-          aria-selected="true"
-        >
-          Add Device
-        </button>
-        <div class="page-nav-right">
-          <button id="btnImportDevices">Import CSV</button>
-          <button id="btnExportDevices">Export CSV</button>
+    <div class="dashboard-shell">
+      <aside class="sidebar" role="navigation" aria-label="Main navigation">
+        <div class="brand-block">
+          <span class="brand-dot"></span>
+          <div>
+            <div class="brand-title">Samsung MCD</div>
+            <div class="brand-subtitle">Control Center</div>
+          </div>
         </div>
-      </div>
 
-      <div
-        id="pageConnection"
-        class="workflow-page active"
-        data-page="connection"
-      >
-        <section class="card">
-          <h2>Connection</h2>
-          <div class="grid">
-            <label>IP <input id="ip" value="" /></label>
-            <label>Port <input id="port" value="1515" type="number" /></label>
-            <label
-              >Display ID <input id="displayId" value="0" type="number"
-            /></label>
-            <label
-              >Protocol
-              <select id="protocol">
-                <option value="AUTO">AUTO</option>
-                <option value="SIGNAGE_MDC">SIGNAGE_MDC</option>
-                <option value="SMART_TV_WS">SMART_TV_WS</option>
-              </select>
-            </label>
-            <label>Site <input id="site" value="" /></label>
-            <label>Description <input id="description" value="" /></label>
-          </div>
-          <div class="actions connection-actions">
-            <button id="btnLoadDevices">Refresh Devices</button>
-            <button id="btnSaveDevice">Update</button>
-            <button id="btnAutoProbe">Auto Probe</button>
-            <button id="btnDeleteDevice" class="connection-action-end">
-              Delete Selected
-            </button>
-            <button id="btnClearCheckedDevices">Clear Selected</button>
-            <input
-              id="deviceCsvInput"
-              type="file"
-              accept=".csv,text/csv"
-              style="display: none"
-            />
-          </div>
+        <div class="sidebar-nav" role="tablist" aria-label="Workflows">
+          <button
+            id="btnPageConnection"
+            class="page-tab active"
+            data-page-target="connection"
+            aria-selected="true"
+          >
+            Connection
+          </button>
+          <button
+            class="page-tab"
+            data-page-target="controls"
+            aria-selected="false"
+          >
+            Controls
+          </button>
+          <button class="page-tab" data-page-target="ws" aria-selected="false">
+            Smart TV WS
+          </button>
+        </div>
 
-          <div class="saved-device-list-wrap">
-            <h3>Saved Device List</h3>
-            <ul id="savedDeviceList" class="saved-device-list"></ul>
-          </div>
-        </section>
-      </div>
+        <div class="sidebar-note">Nexus style dashboard theme</div>
+      </aside>
 
-      <div id="pageControls" class="workflow-page" data-page="controls">
-        <section class="card">
-          <div class="actions-title-row">
-            <h2>Actions</h2>
-            <button id="btnTestConnection">Test</button>
+      <main class="app">
+        <header class="topbar">
+          <h1>Samsung Hybrid Control</h1>
+          <div class="topbar-search-wrap">
+            <input type="text" placeholder="Search actions" disabled />
           </div>
-          <div class="action-layout">
-            <div class="action-group power-status-group">
-              <h3>Power & Status</h3>
-              <div class="actions">
-                <button id="btnStatus">Status</button>
-                <button id="btnPowerOn">Power ON</button>
-                <button id="btnPowerOff">Power OFF</button>
-                <button id="btnReboot">Reboot</button>
-              </div>
-              <pre id="quickOutputLine"></pre>
+          <div class="page-nav-right">
+            <button id="btnImportDevices">Import CSV</button>
+            <button id="btnExportDevices">Export CSV</button>
+          </div>
+        </header>
+
+        <button
+          class="page-tab mobile-only active"
+          data-page-target="connection"
+          aria-selected="false"
+        >
+          Connection
+        </button>
+
+        <div
+          id="pageConnection"
+          class="workflow-page active"
+          data-page="connection"
+        >
+          <section class="card">
+            <h2>Connection</h2>
+            <div class="grid">
+              <label>IP <input id="ip" value="" /></label>
+              <label>Port <input id="port" value="1515" type="number" /></label>
+              <label
+                >Display ID <input id="displayId" value="0" type="number"
+              /></label>
+              <label
+                >Protocol
+                <select id="protocol">
+                  <option value="AUTO">AUTO</option>
+                  <option value="SIGNAGE_MDC">SIGNAGE_MDC</option>
+                  <option value="SMART_TV_WS">SMART_TV_WS</option>
+                </select>
+              </label>
+              <label>Site <input id="site" value="" /></label>
+              <label>Description <input id="description" value="" /></label>
             </div>
-
-            <div class="action-group">
-              <h3>Audio & Video</h3>
-              <div class="control-pairs">
-                <div class="control-row">
-                  <label
-                    >Volume
-                    <input
-                      id="volume"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value="30"
-                  /></label>
-                  <button id="btnSetVolume">Set Volume</button>
-                </div>
-
-                <div class="control-row">
-                  <label
-                    >Brightness
-                    <input
-                      id="brightness"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value="50"
-                  /></label>
-                  <button id="btnSetBrightness">Set Brightness</button>
-                </div>
-
-                <div class="control-row">
-                  <label
-                    >Mute
-                    <select id="mute">
-                      <option value="ON">ON</option>
-                      <option value="OFF" selected>OFF</option>
-                    </select>
-                  </label>
-                  <button id="btnSetMute">Set Mute</button>
-                </div>
-
-                <div class="control-row">
-                  <label
-                    >Input
-                    <select id="inputSource">
-                      <option value="HDMI1">HDMI1</option>
-                      <option value="HDMI2">HDMI2</option>
-                      <option value="HDMI3">HDMI3</option>
-                      <option value="HDMI4">HDMI4</option>
-                      <option value="DISPLAY_PORT_1">DISPLAY_PORT_1</option>
-                    </select>
-                  </label>
-                  <button id="btnSetInput">Set Input</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>CLI Comands</h2>
-          <div class="actions">
-            <label
-              >MDC Command
-              <select id="cliCommand"></select>
-            </label>
-            <label
-              >Manual Override (JSON array or comma-separated)
-              <input id="cliArgs" value="" placeholder="e.g. [80] or ON,50" />
-            </label>
-            <button id="btnCliGet">CLI GET</button>
-            <button id="btnCliSet">CLI SET</button>
-          </div>
-
-          <div class="card" id="cliArgsCard">
-            <h3>Arguments (from Python command schema)</h3>
-            <div id="cliArgRows"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>Output</h2>
-          <pre id="output"></pre>
-        </section>
-
-        <section class="card">
-          <h2>Command Log</h2>
-          <pre id="commandLog"></pre>
-        </section>
-      </div>
-
-      <div id="pageWs" class="workflow-page" data-page="ws">
-        <section class="card">
-          <h2>WS Comands</h2>
-
-          <div class="actions">
-            <label
-              >Smart TV Key
-              <select id="consumerKey"></select>
-            </label>
-            <label
-              >Repeat
+            <div class="actions connection-actions">
+              <button id="btnLoadDevices">Refresh Devices</button>
+              <button id="btnSaveDevice">Update</button>
+              <button id="btnAutoProbe">Auto Probe</button>
+              <button id="btnDeleteDevice" class="connection-action-end">
+                Delete Selected
+              </button>
+              <button id="btnClearCheckedDevices">Clear Selected</button>
               <input
-                id="consumerRepeat"
-                type="number"
-                min="1"
-                max="20"
-                value="1"
+                id="deviceCsvInput"
+                type="file"
+                accept=".csv,text/csv"
+                style="display: none"
               />
-            </label>
-            <button id="btnConsumerKey">Send Key</button>
-          </div>
+            </div>
 
-          <div class="actions">
-            <button id="btnHdmi1">HDMI1 Macro</button>
-            <button id="btnHdmi2">HDMI2 Macro</button>
-            <button id="btnHdmi3">HDMI3 Macro</button>
-            <button id="btnHdmi4">HDMI4 Macro</button>
-          </div>
-        </section>
+            <div class="saved-device-list-wrap">
+              <h3>Saved Device List</h3>
+              <ul id="savedDeviceList" class="saved-device-list"></ul>
+            </div>
+          </section>
+        </div>
 
-        <section class="card">
-          <h2>Output</h2>
-          <pre id="outputWs"></pre>
-        </section>
+        <div id="pageControls" class="workflow-page" data-page="controls">
+          <section class="card">
+            <div class="actions-title-row">
+              <h2>Actions</h2>
+              <button id="btnTestConnection">Test</button>
+            </div>
+            <div class="action-layout">
+              <div class="action-group power-status-group">
+                <h3>Power & Status</h3>
+                <div class="actions">
+                  <button id="btnStatus">Status</button>
+                  <button id="btnPowerOn">Power ON</button>
+                  <button id="btnPowerOff">Power OFF</button>
+                  <button id="btnReboot">Reboot</button>
+                </div>
+                <pre id="quickOutputLine"></pre>
+              </div>
 
-        <section class="card">
-          <h2>Command Log</h2>
-          <pre id="commandLogWs"></pre>
-        </section>
-      </div>
-    </main>
+              <div class="action-group">
+                <h3>Audio & Video</h3>
+                <div class="control-pairs">
+                  <div class="control-row">
+                    <label
+                      >Volume
+                      <input
+                        id="volume"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value="30"
+                    /></label>
+                    <button id="btnSetVolume">Set Volume</button>
+                  </div>
+
+                  <div class="control-row">
+                    <label
+                      >Brightness
+                      <input
+                        id="brightness"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value="50"
+                    /></label>
+                    <button id="btnSetBrightness">Set Brightness</button>
+                  </div>
+
+                  <div class="control-row">
+                    <label
+                      >Mute
+                      <select id="mute">
+                        <option value="ON">ON</option>
+                        <option value="OFF" selected>OFF</option>
+                      </select>
+                    </label>
+                    <button id="btnSetMute">Set Mute</button>
+                  </div>
+
+                  <div class="control-row">
+                    <label
+                      >Input
+                      <select id="inputSource">
+                        <option value="HDMI1">HDMI1</option>
+                        <option value="HDMI2">HDMI2</option>
+                        <option value="HDMI3">HDMI3</option>
+                        <option value="HDMI4">HDMI4</option>
+                        <option value="DISPLAY_PORT_1">DISPLAY_PORT_1</option>
+                      </select>
+                    </label>
+                    <button id="btnSetInput">Set Input</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>CLI Comands</h2>
+            <div class="actions">
+              <label
+                >MDC Command
+                <select id="cliCommand"></select>
+              </label>
+              <label
+                >Manual Override (JSON array or comma-separated)
+                <input id="cliArgs" value="" placeholder="e.g. [80] or ON,50" />
+              </label>
+              <button id="btnCliGet">CLI GET</button>
+              <button id="btnCliSet">CLI SET</button>
+            </div>
+
+            <div class="card" id="cliArgsCard">
+              <h3>Arguments (from Python command schema)</h3>
+              <div id="cliArgRows"></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Output</h2>
+            <pre id="output"></pre>
+          </section>
+
+          <section class="card">
+            <h2>Command Log</h2>
+            <pre id="commandLog"></pre>
+          </section>
+        </div>
+
+        <div id="pageWs" class="workflow-page" data-page="ws">
+          <section class="card">
+            <h2>WS Comands</h2>
+
+            <div class="actions">
+              <label
+                >Smart TV Key
+                <select id="consumerKey"></select>
+              </label>
+              <label
+                >Repeat
+                <input
+                  id="consumerRepeat"
+                  type="number"
+                  min="1"
+                  max="20"
+                  value="1"
+                />
+              </label>
+              <button id="btnConsumerKey">Send Key</button>
+            </div>
+
+            <div class="actions">
+              <button id="btnHdmi1">HDMI1 Macro</button>
+              <button id="btnHdmi2">HDMI2 Macro</button>
+              <button id="btnHdmi3">HDMI3 Macro</button>
+              <button id="btnHdmi4">HDMI4 Macro</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Output</h2>
+            <pre id="outputWs"></pre>
+          </section>
+
+          <section class="card">
+            <h2>Command Log</h2>
+            <pre id="commandLogWs"></pre>
+          </section>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
