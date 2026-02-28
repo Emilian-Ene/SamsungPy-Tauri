@@ -29,11 +29,8 @@ jobs:
         run: npm ci --include=dev
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           targets: x86_64-pc-windows-msvc
 
       - name: Verify Rust toolchain
