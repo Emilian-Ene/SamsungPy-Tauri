@@ -124,6 +124,43 @@ function logLine(message) {
   }
 }
 
+function clearLog(logId) {
+  const box = $(logId);
+  if (!box) {
+    return { ok: false, error: `Log box not found: ${logId}` };
+  }
+
+  box.textContent = '';
+  return { ok: true, message: 'log cleared' };
+}
+
+function saveLog(logId, filenamePrefix) {
+  const box = $(logId);
+  if (!box) {
+    return { ok: false, error: `Log box not found: ${logId}` };
+  }
+
+  const text = String(box.textContent || '').trim();
+  if (!text) {
+    return { ok: false, error: 'Log is empty' };
+  }
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `${filenamePrefix}_${stamp}.log`;
+  const blob = new Blob([text + '\n'], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+
+  return { ok: true, message: `saved ${filename}` };
+}
+
 function stringifyError(error) {
   if (!error) {
     return 'Unknown error';
@@ -2051,6 +2088,12 @@ bindButtonAction('btnHdmi1', () => sendHdmiMacro('HDMI1'));
 bindButtonAction('btnHdmi2', () => sendHdmiMacro('HDMI2'));
 bindButtonAction('btnHdmi3', () => sendHdmiMacro('HDMI3'));
 bindButtonAction('btnHdmi4', () => sendHdmiMacro('HDMI4'));
+bindButtonAction('btnClearLog', () => clearLog('commandLog'));
+bindButtonAction('btnSaveLog', () => saveLog('commandLog', 'command_log'));
+bindButtonAction('btnClearLogWs', () => clearLog('commandLogWs'));
+bindButtonAction('btnSaveLogWs', () =>
+  saveLog('commandLogWs', 'command_log_ws'),
+);
 $('cliCommand').addEventListener('change', (event) =>
   renderCliArgRows(event.target.value),
 );

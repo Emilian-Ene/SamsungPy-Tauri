@@ -285,6 +285,23 @@ body {
   margin-left: auto;
 }
 
+.log-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.log-header-row h2 {
+  margin: 0;
+}
+
+.log-header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
 .card h3 {
   margin: 0 0 10px;
   font-size: 15px;
@@ -318,6 +335,46 @@ input,
 select {
   background: #0f1a2c;
   color: #f3f8ff;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #8db8ff 50%),
+    linear-gradient(135deg, #8db8ff 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 1px),
+    calc(100% - 11px) calc(50% - 1px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+select:hover {
+  border-color: #355a92;
+  background-color: #12203a;
+}
+
+select option,
+select optgroup {
+  background: #0c1526;
+  color: #e9f2ff;
+}
+
+select option:checked {
+  background: linear-gradient(180deg, #1f4eb3 0%, #1a428f 100%);
+  color: #ffffff;
 }
 
 button {
