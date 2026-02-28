@@ -33,17 +33,18 @@ body {
 .sidebar {
   border-right: 1px solid #1c2432;
   background: linear-gradient(180deg, #0c131f 0%, #090f1a 100%);
-  padding: 20px 14px;
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .brand-block {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 8px 12px;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid #172338;
 }
 
 .brand-dot {
@@ -67,15 +68,17 @@ body {
 
 .sidebar-nav {
   display: grid;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 5px;
+  margin-top: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #172338;
 }
 
 .sidebar-note {
   margin-top: auto;
-  padding: 10px 12px;
+  padding: 9px 10px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 11px;
   color: #91a4c8;
   background: #0f1727;
   border: 1px solid #1c2941;
@@ -190,14 +193,14 @@ body {
   border: 1px solid #1f2e47;
   text-align: left;
   font-weight: 600;
-  min-height: 38px;
-  border-radius: 10px;
+  min-height: 36px;
+  border-radius: 9px;
 }
 
 .sidebar-nav .page-tab {
   width: 100%;
   position: relative;
-  padding-left: 14px;
+  padding-left: 12px;
 }
 
 .page-tab.active {
@@ -238,6 +241,27 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 10px 26px rgba(3, 8, 17, 0.52);
+}
+
+.workflow-page > .card + .card {
+  position: relative;
+  margin-top: 14px;
+}
+
+.workflow-page > .card + .card::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #1e2d46 18%,
+    #1e2d46 82%,
+    transparent
+  );
 }
 
 .card h2 {
@@ -350,7 +374,7 @@ button.btn-error {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
   align-items: end;
 }
 
