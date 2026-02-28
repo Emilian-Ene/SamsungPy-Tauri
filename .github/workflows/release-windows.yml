@@ -41,7 +41,10 @@ jobs:
       - name: Read app version
         id: app_version
         shell: bash
-        run: echo "version=v$(node -p \"require('./tauri-app/package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          npm pkg get version --prefix tauri-app \
+            | tr -d '"' \
+            | awk '{print "version=v"$0}' >> "$GITHUB_OUTPUT"
 
       - name: Build Windows EXE
         working-directory: tauri-app
