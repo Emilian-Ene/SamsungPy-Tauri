@@ -1,4 +1,5 @@
-name: Release Windows EXE
+name: Samsung MCD Release
+run-name: Samsung MCD Release ${{ github.ref_name }} #${{ github.run_number }}
 
 on:
   push:
