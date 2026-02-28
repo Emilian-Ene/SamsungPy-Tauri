@@ -21,7 +21,10 @@ struct SavedDevice {
 }
 
 fn saved_devices_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../saved_devices.json")
+    let base = dirs::data_local_dir()
+        .or_else(dirs::data_dir)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    base.join("SamsungMdcTauri").join("saved_devices.json")
 }
 
 fn normalize_protocol(value: &str) -> String {
@@ -111,6 +114,14 @@ fn load_saved_devices_internal() -> Result<Vec<SavedDevice>, String> {
 
 fn save_saved_devices_internal(devices: &[SavedDevice]) -> Result<(), String> {
     let path = saved_devices_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Cannot create saved devices directory {}: {e}",
+                parent.display()
+            )
+        })?;
+    }
     let json = serde_json::to_string_pretty(devices)
         .map_err(|e| format!("Cannot serialize saved devices: {e}"))?;
     fs::write(&path, json).map_err(|e| format!("Cannot write {}: {e}", path.display()))
