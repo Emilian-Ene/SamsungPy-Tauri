@@ -25,6 +25,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": [
+      "../py/bridge.py",
+      "../py/web_backend.py",
+      "../py/export_cli_catalog.py"
+    ],
     "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }

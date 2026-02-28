@@ -1311,6 +1311,7 @@ async function callAction(action, data = {}) {
     ...data,
     timeout_s: Math.ceil(timeoutMs / 1000),
   };
+  let tauriFallbackErrorText = null;
   logLine(
     `Action '${action}' sent to ${payload.ip}:${payload.port} (${payload.protocol})`,
   );
@@ -1333,7 +1334,11 @@ async function callAction(action, data = {}) {
       );
     }
     return normalized;
-  } catch (_tauriError) {
+  } catch (tauriError) {
+    tauriFallbackErrorText = String(tauriError);
+    logLine(
+      `Action '${action}' tauri bridge failed: ${tauriFallbackErrorText}`,
+    );
     // fallback below
   }
 
@@ -1422,6 +1427,11 @@ async function callAction(action, data = {}) {
       logLine(
         `Tip: start web backend with 'py py/web_backend.py' in tauri-app`,
       );
+      if (tauriFallbackErrorText) {
+        logLine(
+          `Tip: tauri bridge error before fallback: ${tauriFallbackErrorText}`,
+        );
+      }
     } else if (deviceTimeoutOrUnreachable) {
       logLine(
         `Tip: backend is online but device is not reachable in time (check network/VPN route/firewall).`,
@@ -1439,12 +1449,15 @@ async function callAction(action, data = {}) {
       screenOnline: backendUnavailable ? false : undefined,
       noAck: writeTimeoutNoAck,
       maybeSent: likelySentButFailed,
+      tauriError: tauriFallbackErrorText || undefined,
       message: writeTimeoutNoAck
         ? 'Backend online, but no ACK from device (network timeout/unreachable).'
         : likelySentButFailed
           ? 'Sent to device; backend response failed (state may have changed).'
           : backendUnavailable
-            ? 'Backend offline or unreachable.'
+            ? tauriFallbackErrorText
+              ? 'Tauri bridge failed and web backend is unreachable.'
+              : 'Backend offline or unreachable.'
             : deviceTimeoutOrUnreachable
               ? 'Backend online, but device timed out/unreachable.'
               : undefined,

@@ -10,6 +10,33 @@ use std::time::Duration;
 
 const BRIDGE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py");
 
+fn bridge_script_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    candidates.push(PathBuf::from(BRIDGE_PATH));
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join("py").join("bridge.py"));
+            candidates.push(exe_dir.join("resources").join("py").join("bridge.py"));
+            candidates.push(exe_dir.join("..").join("Resources").join("py").join("bridge.py"));
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("py").join("bridge.py"));
+    }
+
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        if !unique.iter().any(|existing: &PathBuf| existing == &candidate) {
+            unique.push(candidate);
+        }
+    }
+
+    unique
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SavedDevice {
     ip: String,
@@ -139,12 +166,21 @@ fn probe_port(ip: &str, port: u16, timeout_ms: u64) -> bool {
 fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
     let payload_str = payload.to_string();
     let python_candidates = ["py", "python", "python3"];
+    let bridge_candidates = bridge_script_candidates();
 
     let mut last_error = String::from("No Python launcher found.");
 
+    let bridge_path = bridge_candidates
+        .into_iter()
+        .find(|path| path.exists())
+        .ok_or_else(|| {
+            "bridge.py not found. Checked: build path, executable resources, and current working directory."
+                .to_string()
+        })?;
+
     for python in python_candidates {
         let output = Command::new(python)
-            .arg(BRIDGE_PATH)
+            .arg(&bridge_path)
             .arg(action)
             .arg(&payload_str)
             .output();
