@@ -34,10 +34,8 @@ jobs:
           targets: x86_64-pc-windows-msvc
 
       - name: Build Windows EXE
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: tauri-app
-          args: --target x86_64-pc-windows-msvc --no-bundle
+        working-directory: tauri-app
+        run: npm run tauri build -- --target x86_64-pc-windows-msvc --no-bundle
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
