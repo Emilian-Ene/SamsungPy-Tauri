@@ -38,6 +38,11 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Read app version
+        id: app_version
+        shell: bash
+        run: echo "version=v$(node -p \"require('./tauri-app/package.json').version\")" >> "$GITHUB_OUTPUT"
+
       - name: Build Windows EXE
         working-directory: tauri-app
         run: npm run tauri build -- --target x86_64-pc-windows-msvc --no-bundle
@@ -45,7 +50,7 @@ jobs:
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-exe-release
+          name: windows-exe-release-${{ steps.app_version.outputs.version }}
           path: tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
           if-no-files-found: error
 
