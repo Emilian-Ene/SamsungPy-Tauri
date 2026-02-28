@@ -46,22 +46,28 @@ jobs:
             | tr -d '"' \
             | awk '{print "version=v"$0}' >> "$GITHUB_OUTPUT"
 
-      - name: Build Windows EXE
+      - name: Build Windows artifacts
         working-directory: tauri-app
-        run: npm run tauri build -- --target x86_64-pc-windows-msvc --no-bundle
+        run: npm run tauri build -- --target x86_64-pc-windows-msvc
 
-      - name: Upload EXE artifact
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-exe-release-${{ steps.app_version.outputs.version }}
-          path: tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+          name: windows-release-artifacts-${{ steps.app_version.outputs.version }}
+          path: |
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+          files: |
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

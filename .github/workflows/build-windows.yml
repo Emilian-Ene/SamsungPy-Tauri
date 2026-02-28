@@ -49,12 +49,14 @@ jobs:
 
       - name: Build Tauri app
         working-directory: tauri-app
-        run: npm run tauri build -- --target x86_64-pc-windows-msvc --no-bundle
+        run: npm run tauri build -- --target x86_64-pc-windows-msvc
 
-      - name: Upload Windows EXE artifact
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-exe-${{ steps.app_version.outputs.version }}
+          name: windows-artifacts-${{ steps.app_version.outputs.version }}
           path: |
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error
