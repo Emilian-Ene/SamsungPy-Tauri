@@ -29,9 +29,17 @@ jobs:
         run: npm ci --include=dev
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
+          toolchain: stable
+          override: true
           targets: x86_64-pc-windows-msvc
+
+      - name: Verify Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
 
       - name: Build Windows EXE
         working-directory: tauri-app
