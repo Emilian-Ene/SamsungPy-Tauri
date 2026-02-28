@@ -65,7 +65,7 @@ jobs:
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-artifacts-${{ steps.app_version.outputs.version }}
+          name: Samsung_MCD_${{ steps.app_version.outputs.version }}
           path: |
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/Samsung_MCD_${{ steps.app_version.outputs.version }}_portable.exe
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi

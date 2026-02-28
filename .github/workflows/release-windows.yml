@@ -75,7 +75,7 @@ jobs:
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-release-artifacts-${{ steps.app_version.outputs.version }}
+          name: Samsung_MCD_${{ steps.app_version.outputs.version }}
           path: |
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/Samsung_MCD_${{ steps.app_version.outputs.version }}_portable.exe
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
@@ -86,18 +86,28 @@ jobs:
         shell: bash
         run: |
           tag="${{ steps.app_version.outputs.version }}"
-          if git ls-remote --tags origin "refs/tags/${tag}" | grep -q "refs/tags/${tag}"; then
-            echo "Tag ${tag} already exists"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            target_sha="${{ github.event.workflow_run.head_sha }}"
+          else
+            target_sha="$(git rev-parse HEAD)"
+          fi
+
+          git fetch --tags --force
+
+          if git rev-parse "refs/tags/${tag}" >/dev/null 2>&1; then
+            tag_sha="$(git rev-list -n 1 "refs/tags/${tag}")"
+            if [ "${tag_sha}" != "${target_sha}" ]; then
+              echo "Tag ${tag} exists on ${tag_sha}, but this build is ${target_sha}."
+              echo "Please bump version (new tag) so build, release and tag all match."
+              exit 1
+            fi
+            echo "Tag ${tag} already exists and matches commit ${target_sha}"
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            if [ "${{ github.event_name }}" = "workflow_run" ]; then
-              target_sha="${{ github.event.workflow_run.head_sha }}"
-            else
-              target_sha="$(git rev-parse HEAD)"
-            fi
             git tag -a "${tag}" "${target_sha}" -m "Release ${tag}"
             git push origin "${tag}"
+            echo "Created tag ${tag} for ${target_sha}"
           fi
 
       - name: Publish GitHub Release
