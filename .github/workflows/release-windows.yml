@@ -1,10 +1,7 @@
 name: Samsung MCD Release
-run-name: Samsung MCD Release ${{ github.ref_name }} #${{ github.run_number }}
+run-name: Samsung MCD Release #${{ github.run_number }}
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
