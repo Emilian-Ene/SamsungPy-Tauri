@@ -9,6 +9,7 @@ use std::process::Command;
 use std::time::Duration;
 
 const BRIDGE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py");
+const BRIDGE_SOURCE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../py/bridge.py"));
 
 fn bridge_script_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
@@ -39,6 +40,21 @@ fn bridge_script_candidates() -> Vec<PathBuf> {
     }
 
     unique
+}
+
+fn ensure_embedded_bridge_file() -> Result<PathBuf, String> {
+    let base = dirs::data_local_dir()
+        .or_else(dirs::data_dir)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    let runtime_dir = base.join("SamsungMdcTauri").join("runtime");
+    fs::create_dir_all(&runtime_dir)
+        .map_err(|e| format!("Cannot create runtime bridge directory {}: {e}", runtime_dir.display()))?;
+
+    let bridge_file = runtime_dir.join("bridge.py");
+    fs::write(&bridge_file, BRIDGE_SOURCE)
+        .map_err(|e| format!("Cannot materialize embedded bridge.py at {}: {e}", bridge_file.display()))?;
+
+    Ok(bridge_file)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,13 +190,10 @@ fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
 
     let mut last_error = String::from("No Python launcher found.");
 
-    let bridge_path = bridge_candidates
-        .into_iter()
-        .find(|path| path.exists())
-        .ok_or_else(|| {
-            "bridge.py not found in app resources/runtime paths. Reinstall latest app package."
-                .to_string()
-        })?;
+    let bridge_path = match bridge_candidates.into_iter().find(|path| path.exists()) {
+        Some(path) => path,
+        None => ensure_embedded_bridge_file()?,
+    };
 
     for python in python_candidates {
         let output = Command::new(python)
