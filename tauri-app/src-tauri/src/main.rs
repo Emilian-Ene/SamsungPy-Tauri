@@ -18,13 +18,17 @@ fn bridge_script_candidates() -> Vec<PathBuf> {
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             candidates.push(exe_dir.join("py").join("bridge.py"));
+            candidates.push(exe_dir.join("bridge.py"));
             candidates.push(exe_dir.join("resources").join("py").join("bridge.py"));
+            candidates.push(exe_dir.join("resources").join("bridge.py"));
             candidates.push(exe_dir.join("..").join("Resources").join("py").join("bridge.py"));
+            candidates.push(exe_dir.join("..").join("Resources").join("bridge.py"));
         }
     }
 
     if let Ok(cwd) = std::env::current_dir() {
         candidates.push(cwd.join("py").join("bridge.py"));
+        candidates.push(cwd.join("bridge.py"));
     }
 
     let mut unique = Vec::new();
@@ -174,7 +178,7 @@ fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
         .into_iter()
         .find(|path| path.exists())
         .ok_or_else(|| {
-            "bridge.py not found. Checked: build path, executable resources, and current working directory."
+            "bridge.py not found in app resources/runtime paths. Reinstall latest app package."
                 .to_string()
         })?;
 
@@ -195,7 +199,13 @@ fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
 
                 let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
                 let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                last_error = format!("{python} bridge failed. stdout='{stdout}' stderr='{stderr}'");
+                if stderr.contains("ModuleNotFoundError") {
+                    last_error = format!(
+                        "{python} bridge failed: missing Python dependency. stdout='{stdout}' stderr='{stderr}'"
+                    );
+                } else {
+                    last_error = format!("{python} bridge failed. stdout='{stdout}' stderr='{stderr}'");
+                }
             }
             Err(err) => {
                 last_error = format!("Unable to start {python}: {err}");
