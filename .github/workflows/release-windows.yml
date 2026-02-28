@@ -2,6 +2,9 @@ name: Samsung MCD Release
 run-name: Samsung MCD Release #${{ github.run_number }}
 
 on:
+  workflow_run:
+    workflows: ['Samsung MCD Build']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -9,11 +12,22 @@ permissions:
 
 jobs:
   release-windows:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout workflow commit
+        if: ${{ github.event_name == 'workflow_run' }}
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Checkout current ref
+        if: ${{ github.event_name != 'workflow_run' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,22 +62,51 @@ jobs:
         working-directory: tauri-app
         run: npm run tauri build -- --target x86_64-pc-windows-msvc
 
+      - name: Rename portable EXE
+        shell: bash
+        run: |
+          exe_file="$(find tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release -maxdepth 1 -type f -name '*.exe' | head -n 1)"
+          if [ -z "$exe_file" ]; then
+            echo "Portable EXE not found"
+            exit 1
+          fi
+          cp "$exe_file" "tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/Samsung_MCD_${{ steps.app_version.outputs.version }}_portable.exe"
+
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-release-artifacts-${{ steps.app_version.outputs.version }}
           path: |
-            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/Samsung_MCD_${{ steps.app_version.outputs.version }}_portable.exe
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error
 
+      - name: Ensure release tag exists
+        shell: bash
+        run: |
+          tag="${{ steps.app_version.outputs.version }}"
+          if git ls-remote --tags origin "refs/tags/${tag}" | grep -q "refs/tags/${tag}"; then
+            echo "Tag ${tag} already exists"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              target_sha="${{ github.event.workflow_run.head_sha }}"
+            else
+              target_sha="$(git rev-parse HEAD)"
+            fi
+            git tag -a "${tag}" "${target_sha}" -m "Release ${tag}"
+            git push origin "${tag}"
+          fi
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.app_version.outputs.version }}
+          name: Samsung MCD ${{ steps.app_version.outputs.version }}
           files: |
-            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+            tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/Samsung_MCD_${{ steps.app_version.outputs.version }}_portable.exe
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
             tauri-app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           generate_release_notes: true
