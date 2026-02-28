@@ -1,6 +1,6 @@
 [package]
 name = "samsung_mdc_tauri"
-version = "1.0.0"
+version = "1.0.1"
 description = "Samsung Hybrid Control in Tauri"
 authors = ["you"]
 edition = "2021"
