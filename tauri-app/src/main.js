@@ -216,6 +216,66 @@ function normalizeActionResult(action, backend, result) {
   return normalized;
 }
 
+function normalizeRemoteActionResultPayload(result) {
+  if (!result || typeof result !== 'object') {
+    return {
+      ok: false,
+      error: 'Remote job completed without result payload',
+    };
+  }
+
+  if (typeof result.ok === 'boolean') {
+    return { ...result };
+  }
+
+  const dataPayload =
+    result.data && typeof result.data === 'object' ? result.data : null;
+  if (dataPayload) {
+    const normalizedData = normalizeRemoteActionResultPayload(dataPayload);
+    return {
+      ...result,
+      ...normalizedData,
+    };
+  }
+
+  const status = String(result.status ?? '')
+    .trim()
+    .toLowerCase();
+
+  if (status === 'success' || status === 'ok') {
+    return {
+      ...result,
+      ok: true,
+    };
+  }
+
+  if (status === 'error' || status === 'failed') {
+    return {
+      ...result,
+      ok: false,
+      error: String(result.error ?? result.detail ?? 'Remote action failed'),
+    };
+  }
+
+  if (typeof result.reachable === 'boolean') {
+    return {
+      ...result,
+      ok: result.reachable,
+      error: result.reachable
+        ? undefined
+        : String(result.error ?? result.detail ?? 'Device unreachable'),
+    };
+  }
+
+  return {
+    ...result,
+    ok: false,
+    error: String(
+      result.error ?? result.detail ?? 'Remote result missing ok flag',
+    ),
+  };
+}
+
 function validateInputSourceSelection(source) {
   const normalizedSource = String(source || '')
     .trim()
@@ -260,7 +320,9 @@ function setConnectionFields(device) {
   if (displayIdInput) displayIdInput.value = Number(device.id ?? 0);
   if (protocolInput) protocolInput.value = device.protocol ?? 'AUTO';
   if (agentIdInput) {
-    agentIdInput.value = String(device.agent_id ?? device.agentId ?? '').trim();
+    agentIdInput.value = sanitizeAgentIdValue(
+      device.agent_id ?? device.agentId ?? '',
+    );
   }
   if (siteInput) siteInput.value = device.site ?? '';
   if (cityInput) cityInput.value = device.city ?? '';
@@ -269,8 +331,30 @@ function setConnectionFields(device) {
   if (descriptionInput) descriptionInput.value = device.description ?? '';
 }
 
+function sanitizeAgentIdValue(value) {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  const lowered = normalized.toLowerCase();
+  if (
+    lowered === 'unknown' ||
+    lowered === 'local' ||
+    lowered === '-' ||
+    lowered === 'none' ||
+    lowered === 'n/a' ||
+    lowered === 'null' ||
+    lowered === 'undefined'
+  ) {
+    return '';
+  }
+
+  return normalized;
+}
+
 function getDeviceAgentId(device) {
-  return String(device?.agent_id ?? device?.agentId ?? '').trim();
+  return sanitizeAgentIdValue(device?.agent_id ?? device?.agentId ?? '');
 }
 
 function getSavedDeviceIp(device) {
@@ -1158,10 +1242,9 @@ async function runSingleTvHeartbeat(device) {
       });
 
       const completed = await pollRemoteJob(queued.job_id, 25000);
-      const remoteResult =
-        completed?.result && typeof completed.result === 'object'
-          ? completed.result
-          : { ok: false, error: 'Remote job completed without result payload' };
+      const remoteResult = normalizeRemoteActionResultPayload(
+        completed?.result,
+      );
 
       const normalized = normalizeActionResult(
         'status',
@@ -1775,7 +1858,7 @@ function normalizeSavedDeviceWeb(device) {
       protocol === 'SIGNAGE_MDC' || protocol === 'SMART_TV_WS'
         ? protocol
         : 'AUTO',
-    agent_id: String(device.agent_id ?? device.agentId ?? '').trim(),
+    agent_id: sanitizeAgentIdValue(device.agent_id ?? device.agentId ?? ''),
     site: String(device.site ?? '').trim(),
     city: String(device.city ?? '').trim(),
     zone: String(device.zone ?? '').trim(),
@@ -1885,7 +1968,7 @@ function readConnection() {
     port: Number($('port').value),
     display_id: Number($('displayId').value),
     protocol: $('protocol').value,
-    agent_id: agentIdInput ? agentIdInput.value.trim() : '',
+    agent_id: sanitizeAgentIdValue(agentIdInput ? agentIdInput.value : ''),
     site: $('site').value.trim(),
     city: $('city')?.value.trim() || '',
     zone: $('zone')?.value.trim() || '',
@@ -2123,8 +2206,9 @@ async function enqueueRemoteJob(agentId, kind, payload) {
   );
 
   const body = response.data;
-  if (!response.ok || !body?.ok || !body?.job_id) {
-    const detail = body?.error || response.raw || `HTTP ${response.status}`;
+  if (!response.ok || !body?.job_id) {
+    const detail =
+      body?.error || body?.detail || response.raw || `HTTP ${response.status}`;
     throw new Error(`Remote enqueue failed: ${detail}`);
   }
   return body;
@@ -2141,8 +2225,12 @@ async function pollRemoteJob(jobId, timeoutMs) {
     );
 
     const body = response.data;
-    if (!response.ok || !body?.ok) {
-      const detail = body?.error || response.raw || `HTTP ${response.status}`;
+    if (!response.ok) {
+      const detail =
+        body?.error ||
+        body?.detail ||
+        response.raw ||
+        `HTTP ${response.status}`;
       throw new Error(`Remote job read failed: ${detail}`);
     }
 
@@ -2151,7 +2239,7 @@ async function pollRemoteJob(jobId, timeoutMs) {
     }
 
     if (body.status === 'failed') {
-      throw new Error(body.error || 'Remote execution failed');
+      throw new Error(body.error || body.detail || 'Remote execution failed');
     }
 
     await new Promise((resolve) =>
@@ -2185,10 +2273,10 @@ async function runConnectionTest() {
       (item) => getSavedDeviceIp(item) === selectedSavedDeviceIp,
     ) || null;
   const agentIdInput = $('agentId');
-  const remoteAgentId = String(
+  const remoteAgentId = sanitizeAgentIdValue(
     (agentIdInput ? agentIdInput.value.trim() : '') ||
       getDeviceAgentId(selectedDevice),
-  ).trim();
+  );
   if (remoteAgentId) {
     if (isAgentKnownOffline(remoteAgentId)) {
       const message = `🔴 Agent offline (${remoteAgentId}) | Screen assumed offline (${ip})`;
@@ -2786,9 +2874,9 @@ async function callAction(action, data = {}) {
     savedDevices.find(
       (item) => getSavedDeviceIp(item) === selectedSavedDeviceIp,
     ) || null;
-  const agentId = String(
+  const agentId = sanitizeAgentIdValue(
     payload.agent_id || getDeviceAgentId(selectedDevice),
-  ).trim();
+  );
   if (agentId) {
     payload.agent_id = agentId;
   }
@@ -2809,10 +2897,9 @@ async function callAction(action, data = {}) {
       });
 
       const completed = await pollRemoteJob(queued.job_id, timeoutMs + 15000);
-      const remoteResult =
-        completed?.result && typeof completed.result === 'object'
-          ? completed.result
-          : { ok: false, error: 'Remote job completed without result payload' };
+      const remoteResult = normalizeRemoteActionResultPayload(
+        completed?.result,
+      );
 
       const normalized = normalizeActionResult(
         action,
@@ -3036,12 +3123,7 @@ async function addCurrentDevice() {
     return { ok: false, error };
   }
 
-  const agentId = String(payload.agent_id || '').trim();
-  if (!agentId) {
-    const error = 'Agent ID is required';
-    logLine(`Add device failed: ${error}`);
-    return { ok: false, error };
-  }
+  const agentId = sanitizeAgentIdValue(payload.agent_id || '');
 
   const exists = savedDevices.some((item) => getSavedDeviceIp(item) === ip);
   if (exists) {
@@ -3106,12 +3188,7 @@ async function saveCurrentDevice() {
     return { ok: false, error };
   }
 
-  const nextAgentId = String(payload.agent_id || '').trim();
-  if (!nextAgentId) {
-    const error = 'Agent ID is required';
-    logLine(`Update failed: ${error}`);
-    return { ok: false, error };
-  }
+  const nextAgentId = sanitizeAgentIdValue(payload.agent_id || '');
 
   try {
     if (nextIp !== selectedSavedDeviceIp) {
