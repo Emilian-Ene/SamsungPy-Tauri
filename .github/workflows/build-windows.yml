@@ -15,6 +15,7 @@ jobs:
   build-windows:
     runs-on: windows-latest
     env:
+      VITE_CLOUD_BASE_URL: ${{ secrets.VITE_CLOUD_BASE_URL }}
       VITE_CLOUD_API_KEY: ${{ secrets.VITE_CLOUD_API_KEY }}
 
     steps:

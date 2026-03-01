@@ -134,6 +134,7 @@ set AGENT_SHARED_SECRET=replace-with-strong-random-secret
 Frontend (`tauri-app/.env`):
 
 ```bash
+VITE_CLOUD_BASE_URL=https://your-cloud-backend.example.com
 VITE_CLOUD_API_KEY=replace-with-strong-random-secret
 ```
 

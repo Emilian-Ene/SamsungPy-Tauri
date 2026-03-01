@@ -15,6 +15,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: windows-latest
     env:
+      VITE_CLOUD_BASE_URL: ${{ secrets.VITE_CLOUD_BASE_URL }}
       VITE_CLOUD_API_KEY: ${{ secrets.VITE_CLOUD_API_KEY }}
 
     steps:

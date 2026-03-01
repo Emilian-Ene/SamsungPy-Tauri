@@ -12,7 +12,10 @@ let checkedSavedDeviceIps = new Set();
 let cliCommands = [];
 let cliCommandMap = new Map();
 const WEB_SAVED_DEVICES_KEY = 'samsung_saved_devices_v1';
-const WEB_BACKEND_URL = 'http://127.0.0.1:8765';
+const WEB_CLOUD_BASE_URL = String(import.meta.env.VITE_CLOUD_BASE_URL || '')
+  .trim()
+  .replace(/\/+$/, '');
+const WEB_BACKEND_URL = WEB_CLOUD_BASE_URL || 'http://127.0.0.1:8765';
 const WEB_CLOUD_API_KEY = import.meta.env.VITE_CLOUD_API_KEY || '';
 const REMOTE_JOB_POLL_INTERVAL_MS = 1200;
 const AGENT_STATUS_REFRESH_INTERVAL_MS = 15000;
