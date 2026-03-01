@@ -53,4 +53,5 @@ chat.txt
 tauri-app/.env
 tauri-app/.env.*
 !tauri-app/.env.example
+!tauri-app/.env.production
 !tauri-app/.env.production.example
