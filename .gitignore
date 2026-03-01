@@ -48,3 +48,9 @@ yarn-error.log*
 
 # Local notes
 chat.txt
+
+# Local environment secrets
+tauri-app/.env
+tauri-app/.env.*
+!tauri-app/.env.example
+!tauri-app/.env.production.example

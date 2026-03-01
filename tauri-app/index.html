@@ -36,6 +36,13 @@
           <button class="page-tab" data-page-target="ws" aria-selected="false">
             Smart TV WS
           </button>
+          <button
+            class="page-tab"
+            data-page-target="agents"
+            aria-selected="false"
+          >
+            Explore Agents
+          </button>
         </div>
 
         <div class="sidebar-note">Nexus style dashboard theme</div>
@@ -84,6 +91,7 @@
           <section class="card">
             <h2>Connection</h2>
             <div class="grid">
+              <label>Device Name <input id="deviceName" value="" /></label>
               <label>IP <input id="ip" value="" /></label>
               <label>Port <input id="port" value="1515" type="number" /></label>
               <label
@@ -97,13 +105,26 @@
                   <option value="SMART_TV_WS">SMART_TV_WS</option>
                 </select>
               </label>
+              <label
+                >Agent ID
+                <input
+                  id="agentId"
+                  value=""
+                  list="agentIdOptions"
+                  placeholder="Select or type Agent ID"
+              /></label>
+              <datalist id="agentIdOptions"></datalist>
               <label>Site <input id="site" value="" /></label>
+              <label>City <input id="city" value="" /></label>
+              <label>Zone <input id="zone" value="" /></label>
+              <label>Area <input id="area" value="" /></label>
               <label>Description <input id="description" value="" /></label>
             </div>
             <div class="actions connection-actions">
+              <button id="btnAddDevice">Add Device</button>
               <button id="btnLoadDevices">Refresh Devices</button>
               <button id="btnSaveDevice">Update</button>
-              <button id="btnAutoProbe">Auto Probe</button>
+              <button id="btnAutoProbe">Detect Connection</button>
               <button id="btnDeleteDevice" class="connection-action-end">
                 Delete Selected
               </button>
@@ -118,7 +139,85 @@
 
             <div class="saved-device-list-wrap">
               <h3>Saved Device List</h3>
-              <ul id="savedDeviceList" class="saved-device-list"></ul>
+              <div class="saved-device-toolbar">
+                <input
+                  id="savedSearch"
+                  type="text"
+                  placeholder="Search by name, IP, or ID"
+                />
+                <select id="savedSiteFilter">
+                  <option value="all">All sites</option>
+                </select>
+                <select id="savedCityFilter">
+                  <option value="all">All cities</option>
+                </select>
+                <select id="savedStatusFilter">
+                  <option value="all">All statuses</option>
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                  <option value="checking">Checking</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+                <button id="btnClearSavedFilters">Clear Filters</button>
+                <button id="btnRefreshAllStatus">Refresh All Status</button>
+                <button id="btnDeleteDeviceToolbar">Delete Selected (0)</button>
+              </div>
+              <table class="saved-device-table" aria-label="Saved devices">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>
+                      <button
+                        id="btnSortSavedName"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        Name
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        id="btnSortSavedIp"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        IP
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        id="btnSortSavedLocation"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        Location
+                      </button>
+                    </th>
+                    <th>Protocol</th>
+                    <th>Agent ID</th>
+                    <th>
+                      <button
+                        id="btnSortSavedStatus"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        Status
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        id="btnSortSavedLastCheck"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        Last Check
+                      </button>
+                    </th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="savedDeviceList" class="saved-device-list"></tbody>
+              </table>
             </div>
           </section>
         </div>
@@ -281,6 +380,76 @@
               </div>
             </div>
             <pre id="commandLogWs"></pre>
+          </section>
+        </div>
+
+        <div id="pageAgents" class="workflow-page" data-page="agents">
+          <section class="card">
+            <h2>Explore Agents</h2>
+            <div class="agents-status-row">
+              <span id="agentsLastUpdatedAtLabel"
+                >Last update: <strong id="agentsLastUpdatedAt">-</strong></span
+              >
+              <button id="btnRefreshAgentStatus" type="button">
+                Refresh Agent Status
+              </button>
+            </div>
+            <div class="saved-device-list-wrap">
+              <table
+                class="saved-device-table"
+                aria-label="Explore agents list"
+              >
+                <thead>
+                  <tr>
+                    <th>
+                      <button
+                        id="btnSortAgentsName"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        Agent Name
+                      </button>
+                    </th>
+                    <th>Status</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="exploreAgentsList" class="saved-device-list"></tbody>
+              </table>
+            </div>
+            <div
+              id="exploreAgentDevicesPanel"
+              class="agent-devices-panel"
+              hidden
+            >
+              <h3 id="exploreAgentDevicesTitle" class="agent-devices-title">
+                TVs on selected agent
+              </h3>
+              <div class="saved-device-list-wrap">
+                <table
+                  class="saved-device-table"
+                  aria-label="Devices assigned to selected agent"
+                >
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>IP</th>
+                      <th>Port</th>
+                      <th>ID</th>
+                      <th>Protocol</th>
+                      <th>Site</th>
+                      <th>TV</th>
+                      <th>Agent</th>
+                      <th>Last</th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="exploreAgentDevicesList"
+                    class="saved-device-list"
+                  ></tbody>
+                </table>
+              </div>
+            </div>
           </section>
         </div>
       </main>

@@ -182,11 +182,23 @@ fn ensure_embedded_bridge_file() -> Result<PathBuf, String> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SavedDevice {
+    #[serde(default)]
+    name: String,
     ip: String,
     port: u16,
     id: i32,
     protocol: String,
+    #[serde(default)]
+    agent_id: String,
+    #[serde(default)]
     site: String,
+    #[serde(default)]
+    city: String,
+    #[serde(default)]
+    zone: String,
+    #[serde(default)]
+    area: String,
+    #[serde(default)]
     description: String,
 }
 
@@ -206,6 +218,13 @@ fn normalize_protocol(value: &str) -> String {
 }
 
 fn normalize_device(input: Value) -> Result<SavedDevice, String> {
+    let name = input
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
     let ip = input
         .get("ip")
         .and_then(Value::as_str)
@@ -230,8 +249,33 @@ fn normalize_device(input: Value) -> Result<SavedDevice, String> {
         .unwrap_or(0);
 
     let protocol = normalize_protocol(input.get("protocol").and_then(Value::as_str).unwrap_or("AUTO"));
+    let agent_id = input
+        .get("agent_id")
+        .or_else(|| input.get("agentId"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
     let site = input
         .get("site")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let city = input
+        .get("city")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let zone = input
+        .get("zone")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let area = input
+        .get("area")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .trim()
@@ -244,11 +288,16 @@ fn normalize_device(input: Value) -> Result<SavedDevice, String> {
         .to_string();
 
     Ok(SavedDevice {
+        name,
         ip,
         port,
         id,
         protocol,
+        agent_id,
         site,
+        city,
+        zone,
+        area,
         description,
     })
 }

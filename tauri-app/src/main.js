@@ -13,6 +13,21 @@ let cliCommands = [];
 let cliCommandMap = new Map();
 const WEB_SAVED_DEVICES_KEY = 'samsung_saved_devices_v1';
 const WEB_BACKEND_URL = 'http://127.0.0.1:8765';
+const WEB_CLOUD_API_KEY = import.meta.env.VITE_CLOUD_API_KEY || '';
+const REMOTE_JOB_POLL_INTERVAL_MS = 1200;
+const AGENT_STATUS_REFRESH_INTERVAL_MS = 15000;
+const TV_STATUS_REFRESH_INTERVAL_MS = 20000;
+const AGENT_ONLINE_THRESHOLD_MS = 45000;
+const savedDeviceRuntimeByIp = new Map();
+let remoteAgentStatusById = {};
+let agentsLastUpdatedAt = '-';
+let remoteAgentStatusTimerId = null;
+let tvStatusHeartbeatTimerId = null;
+let isTvStatusHeartbeatRunning = false;
+let savedSortBy = 'name';
+let savedSortDirection = 'asc';
+let agentsSortDirection = 'asc';
+let selectedExploreAgentId = '';
 
 try {
   const rawChecked = localStorage.getItem(WEB_CHECKED_DEVICES_KEY);
@@ -224,12 +239,1045 @@ function validateInputSourceSelection(source) {
 }
 
 function setConnectionFields(device) {
-  $('ip').value = device.ip ?? '';
-  $('port').value = Number(device.port ?? 1515);
-  $('displayId').value = Number(device.id ?? 0);
-  $('protocol').value = device.protocol ?? 'AUTO';
-  $('site').value = device.site ?? '';
-  $('description').value = device.description ?? '';
+  const nameInput = $('deviceName');
+  const ipInput = $('ip');
+  const portInput = $('port');
+  const displayIdInput = $('displayId');
+  const protocolInput = $('protocol');
+  const agentIdInput = $('agentId');
+  const siteInput = $('site');
+  const cityInput = $('city');
+  const zoneInput = $('zone');
+  const areaInput = $('area');
+  const descriptionInput = $('description');
+
+  if (nameInput) nameInput.value = String(device.name ?? '').trim();
+  if (ipInput) ipInput.value = device.tv_ip ?? device.ip ?? '';
+  if (portInput) portInput.value = Number(device.port ?? 1515);
+  if (displayIdInput) displayIdInput.value = Number(device.id ?? 0);
+  if (protocolInput) protocolInput.value = device.protocol ?? 'AUTO';
+  if (agentIdInput) {
+    agentIdInput.value = String(device.agent_id ?? device.agentId ?? '').trim();
+  }
+  if (siteInput) siteInput.value = device.site ?? '';
+  if (cityInput) cityInput.value = device.city ?? '';
+  if (zoneInput) zoneInput.value = device.zone ?? '';
+  if (areaInput) areaInput.value = device.area ?? '';
+  if (descriptionInput) descriptionInput.value = device.description ?? '';
+}
+
+function getDeviceAgentId(device) {
+  return String(device?.agent_id ?? device?.agentId ?? '').trim();
+}
+
+function getSavedDeviceIp(device) {
+  return String(device?.tv_ip ?? device?.ip ?? '').trim();
+}
+
+function getSavedDeviceName(device) {
+  const explicitName = String(device?.name ?? '').trim();
+  if (explicitName) {
+    return explicitName;
+  }
+
+  const description = String(device?.description ?? '').trim();
+  if (description) {
+    return description;
+  }
+
+  const site = String(device?.site ?? '').trim();
+  if (site) {
+    return `${site} Screen`;
+  }
+
+  return 'Unnamed Screen';
+}
+
+function protocolLabelForList(protocol) {
+  const value = String(protocol ?? 'AUTO')
+    .trim()
+    .toUpperCase();
+  if (value === 'SIGNAGE_MDC') {
+    return 'MDC';
+  }
+  if (value === 'SMART_TV_WS') {
+    return 'WS';
+  }
+  return 'AUTO';
+}
+
+function normalizeListStatus(status) {
+  const value = String(status ?? '')
+    .trim()
+    .toLowerCase();
+  if (value === 'online' || value === 'offline' || value === 'checking') {
+    return value;
+  }
+  if (value === 'local') {
+    return 'local';
+  }
+  return 'unknown';
+}
+
+function parseIsoTimestamp(isoValue) {
+  const value = Date.parse(String(isoValue ?? ''));
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatUiTimestamp(value = Date.now()) {
+  const ts =
+    value instanceof Date
+      ? value.getTime()
+      : Number.isFinite(Number(value))
+        ? Number(value)
+        : Date.now();
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(new Date(ts));
+}
+
+function toAgentState(lastSeenRaw) {
+  const ts = parseIsoTimestamp(lastSeenRaw);
+  if (ts === null) {
+    return {
+      status: 'unknown',
+      lastSeenLabel: '-',
+    };
+  }
+
+  const ageMs = Date.now() - ts;
+  return {
+    status: ageMs <= AGENT_ONLINE_THRESHOLD_MS ? 'online' : 'offline',
+    lastSeenLabel: new Date(ts).toLocaleString(),
+  };
+}
+
+function agentStatusLabelForDevice(device) {
+  const agentId = getDeviceAgentId(device);
+  if (!agentId) {
+    return 'local';
+  }
+  return normalizeListStatus(remoteAgentStatusById[agentId]?.status);
+}
+
+function isAgentKnownOffline(agentId) {
+  const id = String(agentId ?? '').trim();
+  if (!id) {
+    return false;
+  }
+  return normalizeListStatus(remoteAgentStatusById[id]?.status) === 'offline';
+}
+
+function getSavedDeviceRuntime(ip) {
+  const key = String(ip ?? '').trim();
+  if (!key) {
+    return { status: 'unknown', lastChecked: '-' };
+  }
+
+  const existing = savedDeviceRuntimeByIp.get(key);
+  if (existing && typeof existing === 'object') {
+    return {
+      status: normalizeListStatus(existing.status),
+      lastChecked: String(existing.lastChecked ?? '-'),
+    };
+  }
+
+  return { status: 'unknown', lastChecked: '-' };
+}
+
+function updateDeleteSelectedButtonLabel() {
+  const count = checkedSavedDeviceIps.size;
+  const button = $('btnDeleteDeviceToolbar');
+  if (button) {
+    button.textContent = `Delete Selected (${count})`;
+  }
+}
+
+function getTrackedAgentIdsFromSavedDevices() {
+  return [
+    ...new Set(
+      savedDevices.map((device) => getDeviceAgentId(device)).filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+}
+
+function updateAgentsLastUpdatedLabel() {
+  const label = $('agentsLastUpdatedAt');
+  if (label) {
+    label.textContent = String(agentsLastUpdatedAt || '-');
+  }
+}
+
+function getAgentsSortLabel() {
+  return agentsSortDirection === 'asc' ? '↑' : '↓';
+}
+
+function updateAgentsSortButtonLabel() {
+  const btn = $('btnSortAgentsName');
+  if (btn) {
+    btn.textContent = `Agent Name ${getAgentsSortLabel()}`;
+  }
+}
+
+function toggleAgentsSortDirection() {
+  agentsSortDirection = agentsSortDirection === 'asc' ? 'desc' : 'asc';
+  updateAgentsSortButtonLabel();
+  renderExploreAgents();
+}
+
+function getSavedDevicesForAgent(agentId) {
+  const normalizedAgentId = String(agentId || '').trim();
+  if (!normalizedAgentId) {
+    return [];
+  }
+
+  return savedDevices
+    .filter((device) => getDeviceAgentId(device) === normalizedAgentId)
+    .slice()
+    .sort((left, right) => {
+      const nameCompare = getSavedDeviceName(left).localeCompare(
+        getSavedDeviceName(right),
+      );
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+
+      return compareIpText(getSavedDeviceIp(left), getSavedDeviceIp(right));
+    });
+}
+
+function createSavedDeviceCell(text) {
+  const cell = document.createElement('td');
+  cell.textContent = String(text ?? '-');
+  return cell;
+}
+
+function createSavedDeviceStatusCell(status) {
+  const cell = document.createElement('td');
+  const chip = document.createElement('span');
+  const normalizedStatus = normalizeListStatus(status);
+  chip.className = `saved-device-chip ${normalizedStatus}`;
+  chip.textContent = normalizedStatus;
+  cell.appendChild(chip);
+  return cell;
+}
+
+function renderExploreAgentDevices(agentId) {
+  const panel = $('exploreAgentDevicesPanel');
+  const title = $('exploreAgentDevicesTitle');
+  const listContainer = $('exploreAgentDevicesList');
+  if (!panel || !title || !listContainer) {
+    return;
+  }
+
+  listContainer.innerHTML = '';
+
+  const normalizedAgentId = String(agentId || '').trim();
+  if (!normalizedAgentId) {
+    panel.hidden = true;
+    return;
+  }
+
+  const devices = getSavedDevicesForAgent(normalizedAgentId);
+  title.textContent = `TVs on agent: ${normalizedAgentId} (${devices.length})`;
+  panel.hidden = false;
+
+  if (!devices.length) {
+    const emptyRow = document.createElement('tr');
+    const emptyCell = document.createElement('td');
+    emptyCell.colSpan = 9;
+    emptyCell.className = 'saved-device-empty';
+    emptyCell.textContent = 'No TVs assigned to this agent.';
+    emptyRow.appendChild(emptyCell);
+    listContainer.appendChild(emptyRow);
+    return;
+  }
+
+  for (const device of devices) {
+    const row = document.createElement('tr');
+    row.className = 'saved-device-row';
+
+    const deviceIp = getSavedDeviceIp(device);
+    const runtime = getSavedDeviceRuntime(deviceIp);
+    const tvStatus = normalizeListStatus(runtime.status);
+    const agentStatus = agentStatusLabelForDevice(device);
+
+    row.appendChild(createSavedDeviceCell(getSavedDeviceName(device)));
+    row.appendChild(createSavedDeviceCell(deviceIp || '-'));
+    row.appendChild(createSavedDeviceCell(Number(device.port ?? 1515)));
+    row.appendChild(createSavedDeviceCell(Number(device.id ?? 0)));
+    row.appendChild(
+      createSavedDeviceCell(protocolLabelForList(device.protocol)),
+    );
+    row.appendChild(createSavedDeviceCell(device.site || '-'));
+    row.appendChild(createSavedDeviceStatusCell(tvStatus));
+    row.appendChild(createSavedDeviceStatusCell(agentStatus));
+    row.appendChild(createSavedDeviceCell(runtime.lastChecked || '-'));
+
+    row.addEventListener('click', (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('button, input, select, textarea, a, label')
+      ) {
+        return;
+      }
+
+      const result = applySelectedDevice(deviceIp);
+      renderOutput(result);
+      if (result.ok) {
+        switchWorkflowPage('controls');
+      } else {
+        showToast(`Open: ${stringifyError(result.error || 'failed')}`, 'error');
+      }
+    });
+
+    listContainer.appendChild(row);
+  }
+}
+
+function renderExploreAgents() {
+  const container = $('exploreAgentsList');
+  if (!container) {
+    return;
+  }
+
+  updateAgentsLastUpdatedLabel();
+
+  container.innerHTML = '';
+  const agentIds = getTrackedAgentIdsFromSavedDevices();
+  if (agentsSortDirection === 'desc') {
+    agentIds.reverse();
+  }
+  if (selectedExploreAgentId && !agentIds.includes(selectedExploreAgentId)) {
+    selectedExploreAgentId = '';
+  }
+  if (!agentIds.length) {
+    const emptyRow = document.createElement('tr');
+    const emptyCell = document.createElement('td');
+    emptyCell.colSpan = 3;
+    emptyCell.className = 'saved-device-empty';
+    emptyCell.textContent = 'No Agent ID assigned in saved devices.';
+    emptyRow.appendChild(emptyCell);
+    container.appendChild(emptyRow);
+    renderExploreAgentDevices('');
+    return;
+  }
+
+  for (const agentId of agentIds) {
+    const row = document.createElement('tr');
+    row.className = 'saved-device-row';
+    const nameCell = document.createElement('td');
+    const statusCell = document.createElement('td');
+    const timestampCell = document.createElement('td');
+    const agentState = remoteAgentStatusById[agentId] || null;
+    const statusValue = normalizeListStatus(agentState?.status);
+    const chip = document.createElement('span');
+    chip.className = `saved-device-chip ${statusValue}`;
+    chip.textContent = statusValue;
+
+    nameCell.textContent = agentId;
+    statusCell.appendChild(chip);
+    timestampCell.textContent = String(agentState?.lastSeenLabel ?? '-');
+    if (agentId === selectedExploreAgentId) {
+      row.classList.add('active');
+    }
+
+    row.addEventListener('click', () => {
+      selectedExploreAgentId =
+        selectedExploreAgentId === agentId ? '' : agentId;
+      renderExploreAgents();
+    });
+
+    row.appendChild(nameCell);
+    row.appendChild(statusCell);
+    row.appendChild(timestampCell);
+    container.appendChild(row);
+  }
+
+  renderExploreAgentDevices(selectedExploreAgentId);
+}
+
+function getSavedDeviceFilterValues() {
+  return {
+    search: String($('savedSearch')?.value ?? '')
+      .trim()
+      .toLowerCase(),
+    site: String($('savedSiteFilter')?.value ?? 'all')
+      .trim()
+      .toLowerCase(),
+    city: String($('savedCityFilter')?.value ?? 'all')
+      .trim()
+      .toLowerCase(),
+    status: String($('savedStatusFilter')?.value ?? 'all')
+      .trim()
+      .toLowerCase(),
+  };
+}
+
+function getSavedSortLabel(fieldName) {
+  if (savedSortBy !== fieldName) {
+    return '↕';
+  }
+  return savedSortDirection === 'asc' ? '↑' : '↓';
+}
+
+function updateSavedSortButtonLabels() {
+  const nameBtn = $('btnSortSavedName');
+  const ipBtn = $('btnSortSavedIp');
+  const locationBtn = $('btnSortSavedLocation');
+  const statusBtn = $('btnSortSavedStatus');
+  const lastCheckBtn = $('btnSortSavedLastCheck');
+
+  if (nameBtn) {
+    nameBtn.textContent = `Name ${getSavedSortLabel('name')}`;
+  }
+  if (ipBtn) {
+    ipBtn.textContent = `IP ${getSavedSortLabel('ip')}`;
+  }
+  if (locationBtn) {
+    locationBtn.textContent = `Location ${getSavedSortLabel('location')}`;
+  }
+  if (statusBtn) {
+    statusBtn.textContent = `Status ${getSavedSortLabel('status')}`;
+  }
+  if (lastCheckBtn) {
+    lastCheckBtn.textContent = `Last Check ${getSavedSortLabel('lastChecked')}`;
+  }
+}
+
+function toggleSavedSort(fieldName) {
+  if (savedSortBy === fieldName) {
+    savedSortDirection = savedSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    savedSortBy = fieldName;
+    savedSortDirection = 'asc';
+  }
+
+  updateSavedSortButtonLabels();
+  renderSavedDeviceList(selectedSavedDeviceIp);
+}
+
+function compareIpText(leftIp, rightIp) {
+  const leftParts = String(leftIp || '')
+    .split('.')
+    .map((part) => Number(part));
+  const rightParts = String(rightIp || '')
+    .split('.')
+    .map((part) => Number(part));
+
+  const isLeftIpv4 = leftParts.length === 4 && leftParts.every(Number.isFinite);
+  const isRightIpv4 =
+    rightParts.length === 4 && rightParts.every(Number.isFinite);
+
+  if (isLeftIpv4 && isRightIpv4) {
+    for (let index = 0; index < 4; index += 1) {
+      const diff = leftParts[index] - rightParts[index];
+      if (diff !== 0) {
+        return diff;
+      }
+    }
+    return 0;
+  }
+
+  return String(leftIp || '').localeCompare(String(rightIp || ''));
+}
+
+function getFilteredSavedDevices() {
+  const filters = getSavedDeviceFilterValues();
+  const filtered = savedDevices.filter((device) => {
+    const deviceIp = getSavedDeviceIp(device);
+    const runtime = getSavedDeviceRuntime(deviceIp);
+    const status = normalizeListStatus(runtime.status);
+    const name = getSavedDeviceName(device).toLowerCase();
+    const locationSite = String(device.site ?? '')
+      .trim()
+      .toLowerCase();
+    const locationCity = String(device.city ?? '')
+      .trim()
+      .toLowerCase();
+    const displayId = String(Number(device.id ?? 0));
+
+    const matchesStatus =
+      filters.status === 'all' ? true : status === filters.status;
+    const matchesSite =
+      filters.site === 'all' ? true : locationSite === filters.site;
+    const matchesCity =
+      filters.city === 'all' ? true : locationCity === filters.city;
+    const matchesSearch =
+      !filters.search ||
+      name.includes(filters.search) ||
+      deviceIp.toLowerCase().includes(filters.search) ||
+      displayId.includes(filters.search) ||
+      locationSite.includes(filters.search) ||
+      locationCity.includes(filters.search);
+
+    return matchesStatus && matchesSite && matchesCity && matchesSearch;
+  });
+
+  const directionFactor = savedSortDirection === 'asc' ? 1 : -1;
+  filtered.sort((left, right) => {
+    const leftIp = getSavedDeviceIp(left);
+    const rightIp = getSavedDeviceIp(right);
+    const leftRuntime = getSavedDeviceRuntime(leftIp);
+    const rightRuntime = getSavedDeviceRuntime(rightIp);
+    const leftLocation =
+      String(left.city ?? '').trim() || String(left.site ?? '').trim();
+    const rightLocation =
+      String(right.city ?? '').trim() || String(right.site ?? '').trim();
+
+    if (savedSortBy === 'ip') {
+      return compareIpText(leftIp, rightIp) * directionFactor;
+    }
+
+    if (savedSortBy === 'location') {
+      return (
+        leftLocation.toLowerCase().localeCompare(rightLocation.toLowerCase()) *
+        directionFactor
+      );
+    }
+
+    if (savedSortBy === 'status') {
+      const statusRank = {
+        online: 0,
+        checking: 1,
+        unknown: 2,
+        local: 2,
+        offline: 3,
+      };
+      const leftValue =
+        statusRank[normalizeListStatus(leftRuntime.status)] ?? 99;
+      const rightValue =
+        statusRank[normalizeListStatus(rightRuntime.status)] ?? 99;
+      return (leftValue - rightValue) * directionFactor;
+    }
+
+    if (savedSortBy === 'lastChecked') {
+      const leftTs = Date.parse(String(leftRuntime.lastChecked || '')) || 0;
+      const rightTs = Date.parse(String(rightRuntime.lastChecked || '')) || 0;
+      return (leftTs - rightTs) * directionFactor;
+    }
+
+    const leftName = getSavedDeviceName(left).toLowerCase();
+    const rightName = getSavedDeviceName(right).toLowerCase();
+    return leftName.localeCompare(rightName) * directionFactor;
+  });
+
+  return filtered;
+}
+
+function updateFilterSelectOptions(selectId, values, allLabel) {
+  const select = $(selectId);
+  if (!select) {
+    return;
+  }
+
+  const previous = String(select.value || 'all');
+  select.innerHTML = '';
+
+  const allOption = document.createElement('option');
+  allOption.value = 'all';
+  allOption.textContent = allLabel;
+  select.appendChild(allOption);
+
+  for (const value of values) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  }
+
+  select.value = values.includes(previous) ? previous : 'all';
+}
+
+function refreshSavedDeviceFilterOptions() {
+  const siteValues = [
+    ...new Set(
+      savedDevices
+        .map((device) => String(device.site ?? '').trim())
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+  const cityValues = [
+    ...new Set(
+      savedDevices
+        .map((device) => String(device.city ?? '').trim())
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+
+  updateFilterSelectOptions('savedSiteFilter', siteValues, 'All sites');
+  updateFilterSelectOptions('savedCityFilter', cityValues, 'All cities');
+}
+
+function clearSavedDeviceFilters() {
+  if ($('savedSearch')) {
+    $('savedSearch').value = '';
+  }
+  if ($('savedSiteFilter')) {
+    $('savedSiteFilter').value = 'all';
+  }
+  if ($('savedCityFilter')) {
+    $('savedCityFilter').value = 'all';
+  }
+  if ($('savedStatusFilter')) {
+    $('savedStatusFilter').value = 'all';
+  }
+
+  renderSavedDeviceList(selectedSavedDeviceIp);
+  return { ok: true, message: 'filters cleared' };
+}
+
+async function refreshAllSavedDeviceStatuses() {
+  if (!savedDevices.length) {
+    return { ok: false, error: 'No devices to refresh' };
+  }
+
+  const previouslySelectedIp = selectedSavedDeviceIp;
+  let online = 0;
+  let offline = 0;
+  let checking = 0;
+  let unknown = 0;
+
+  for (const device of savedDevices) {
+    const deviceIp = getSavedDeviceIp(device);
+    if (!deviceIp) {
+      continue;
+    }
+
+    const deviceAgentId = getDeviceAgentId(device);
+    if (deviceAgentId && isAgentKnownOffline(deviceAgentId)) {
+      setSavedDeviceRuntime(deviceIp, {
+        status: 'offline',
+        lastChecked: formatUiTimestamp(),
+      });
+      offline += 1;
+      continue;
+    }
+
+    setSavedDeviceRuntime(deviceIp, {
+      status: 'checking',
+      lastChecked: formatUiTimestamp(),
+    });
+    renderSavedDeviceList(selectedSavedDeviceIp);
+
+    const selectResult = applySelectedDevice(deviceIp);
+    if (!selectResult.ok) {
+      setSavedDeviceRuntime(deviceIp, {
+        status: 'unknown',
+        lastChecked: formatUiTimestamp(),
+      });
+      unknown += 1;
+      continue;
+    }
+
+    const result = await runConnectionTest();
+    const status = deriveStatusFromTestResult(result);
+    setSavedDeviceRuntime(deviceIp, {
+      status,
+      lastChecked: formatUiTimestamp(),
+    });
+
+    if (status === 'online') {
+      online += 1;
+    } else if (status === 'offline') {
+      offline += 1;
+    } else if (status === 'checking') {
+      checking += 1;
+    } else {
+      unknown += 1;
+    }
+  }
+
+  if (previouslySelectedIp) {
+    applySelectedDevice(previouslySelectedIp);
+  }
+  renderSavedDeviceList(selectedSavedDeviceIp);
+
+  const checked = online + offline + checking + unknown;
+  return {
+    ok: true,
+    message: `refreshed ${checked} devices (${online} online, ${offline} offline, ${checking} checking, ${unknown} unknown)`,
+    count: checked,
+    online,
+    offline,
+    checking,
+    unknown,
+  };
+}
+
+function initSavedDeviceToolbar() {
+  const rerender = () => renderSavedDeviceList(selectedSavedDeviceIp);
+
+  $('savedSearch')?.addEventListener('input', rerender);
+  $('savedSiteFilter')?.addEventListener('change', rerender);
+  $('savedCityFilter')?.addEventListener('change', rerender);
+  $('savedStatusFilter')?.addEventListener('change', rerender);
+  $('btnSortSavedIp')?.addEventListener('click', () => toggleSavedSort('ip'));
+  $('btnSortSavedLocation')?.addEventListener('click', () =>
+    toggleSavedSort('location'),
+  );
+  $('btnSortSavedName')?.addEventListener('click', () =>
+    toggleSavedSort('name'),
+  );
+  $('btnSortSavedStatus')?.addEventListener('click', () =>
+    toggleSavedSort('status'),
+  );
+  $('btnSortSavedLastCheck')?.addEventListener('click', () =>
+    toggleSavedSort('lastChecked'),
+  );
+  $('btnSortAgentsName')?.addEventListener('click', toggleAgentsSortDirection);
+  $('btnRefreshAgentStatus')?.addEventListener('click', () => {
+    void refreshAgentStatusManual().then((result) => {
+      renderOutput(result);
+      if (result.ok) {
+        showToast(`Refresh Agent Status: ${result.message}`, 'success');
+      } else {
+        showToast(
+          `Refresh Agent Status: ${stringifyError(result.error || 'failed')}`,
+          'error',
+        );
+      }
+    });
+  });
+
+  updateDeleteSelectedButtonLabel();
+  updateSavedSortButtonLabels();
+  updateAgentsSortButtonLabel();
+  updateAgentsLastUpdatedLabel();
+}
+
+function setSavedDeviceRuntime(ip, nextRuntime) {
+  const key = String(ip ?? '').trim();
+  if (!key || !nextRuntime || typeof nextRuntime !== 'object') {
+    return;
+  }
+
+  const current = getSavedDeviceRuntime(key);
+  savedDeviceRuntimeByIp.set(key, {
+    status: normalizeListStatus(nextRuntime.status ?? current.status),
+    lastChecked: String(nextRuntime.lastChecked ?? current.lastChecked),
+  });
+}
+
+function deriveStatusFromTestResult(result) {
+  if (result?.ok) {
+    return 'online';
+  }
+  const health = String(result?.healthState ?? '')
+    .trim()
+    .toLowerCase();
+  if (health === 'offline') {
+    return 'offline';
+  }
+  if (health === 'warn') {
+    return 'checking';
+  }
+  return 'unknown';
+}
+
+async function runConnectionTestTracked() {
+  const ip = String(selectedSavedDeviceIp ?? '').trim();
+  if (ip) {
+    setSavedDeviceRuntime(ip, {
+      status: 'checking',
+      lastChecked: formatUiTimestamp(),
+    });
+    renderSavedDeviceList(selectedSavedDeviceIp);
+  }
+
+  const result = await runConnectionTest();
+
+  if (ip) {
+    setSavedDeviceRuntime(ip, {
+      status: deriveStatusFromTestResult(result),
+      lastChecked: formatUiTimestamp(),
+    });
+    renderSavedDeviceList(selectedSavedDeviceIp);
+  }
+
+  return result;
+}
+
+async function refreshRemoteAgentStatuses({ silent = true } = {}) {
+  try {
+    const response = await fetchJsonWithTimeout(
+      `${WEB_BACKEND_URL}/api/remote/agents`,
+      4000,
+      remoteHeaders(),
+    );
+    if (!response.ok) {
+      throw new Error(response.raw || `HTTP ${response.status}`);
+    }
+
+    const body = response.data;
+    const nextState = {};
+    const rows = Array.isArray(body?.agents) ? body.agents : [];
+    for (const row of rows) {
+      const agentId = String(row?.agent_id ?? '').trim();
+      if (!agentId) {
+        continue;
+      }
+      nextState[agentId] = toAgentState(row?.last_seen);
+    }
+    remoteAgentStatusById = nextState;
+    agentsLastUpdatedAt = new Date().toLocaleString();
+    refreshAgentIdSuggestions();
+    renderExploreAgents();
+    return true;
+  } catch (error) {
+    if (!silent) {
+      logLine(`Agent status refresh failed: ${stringifyError(error)}`);
+    }
+    return false;
+  }
+}
+
+async function refreshAgentStatusManual() {
+  const ok = await refreshRemoteAgentStatuses({ silent: false });
+  if (!ok) {
+    return { ok: false, error: 'Agent status refresh failed' };
+  }
+
+  renderSavedDeviceList(selectedSavedDeviceIp);
+  const states = Object.values(remoteAgentStatusById || {});
+  const total = states.length;
+  const online = states.filter((entry) => entry?.status === 'online').length;
+  const offline = states.filter((entry) => entry?.status === 'offline').length;
+  return {
+    ok: true,
+    message: `${online} online, ${offline} offline (${total} total)`,
+    online,
+    offline,
+    total,
+  };
+}
+
+function refreshAgentIdSuggestions() {
+  const list = $('agentIdOptions');
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = '';
+
+  const statuses = remoteAgentStatusById || {};
+  const agentIds = Object.keys(statuses).sort((left, right) =>
+    left.localeCompare(right),
+  );
+
+  for (const agentId of agentIds) {
+    const state = normalizeListStatus(statuses[agentId]?.status);
+    const option = document.createElement('option');
+    option.value = agentId;
+    option.label = `${agentId} (${state})`;
+    list.appendChild(option);
+  }
+}
+
+function stopAgentStatusAutoRefresh() {
+  if (remoteAgentStatusTimerId) {
+    window.clearInterval(remoteAgentStatusTimerId);
+    remoteAgentStatusTimerId = null;
+  }
+}
+
+function startAgentStatusAutoRefresh() {
+  stopAgentStatusAutoRefresh();
+  remoteAgentStatusTimerId = window.setInterval(async () => {
+    const ok = await refreshRemoteAgentStatuses({ silent: true });
+    if (ok) {
+      renderSavedDeviceList(selectedSavedDeviceIp);
+    }
+  }, AGENT_STATUS_REFRESH_INTERVAL_MS);
+}
+
+function isBackendUnavailableErrorText(errorText) {
+  const text = String(errorText || '').toLowerCase();
+  return /(failed to fetch|connection refused|econnrefused|err_connection_refused|networkerror|enotfound|backend unavailable|invalid api key|invalid agent token|503|401)/i.test(
+    text,
+  );
+}
+
+function deriveTvHeartbeatStatus(result) {
+  if (result?.ok) {
+    return 'online';
+  }
+
+  const errorText = stringifyError(result?.error || result?.message || '');
+  if (isBackendUnavailableErrorText(errorText)) {
+    return 'unknown';
+  }
+
+  return 'offline';
+}
+
+async function runSingleTvHeartbeat(device) {
+  const tvIp = getSavedDeviceIp(device);
+  if (!tvIp) {
+    return { ok: false, error: 'Missing device IP', status: 'unknown' };
+  }
+
+  const payload = {
+    tv_ip: tvIp,
+    ip: tvIp,
+    port: Number(device?.port ?? 1515),
+    display_id: Number(device?.id ?? 0),
+    protocol: String(device?.protocol ?? 'AUTO'),
+    timeout_s: 20,
+  };
+
+  const agentId = getDeviceAgentId(device);
+  if (agentId) {
+    if (isAgentKnownOffline(agentId)) {
+      return {
+        ok: false,
+        error: `Agent ${agentId} is offline`,
+        status: 'offline',
+        backend: `remote:${agentId}`,
+        agent_id: agentId,
+      };
+    }
+
+    try {
+      const queued = await enqueueRemoteJob(agentId, 'device_action', {
+        action: 'status',
+        payload: {
+          ...payload,
+          agent_id: agentId,
+        },
+      });
+
+      const completed = await pollRemoteJob(queued.job_id, 25000);
+      const remoteResult =
+        completed?.result && typeof completed.result === 'object'
+          ? completed.result
+          : { ok: false, error: 'Remote job completed without result payload' };
+
+      const normalized = normalizeActionResult(
+        'status',
+        `remote:${agentId}`,
+        remoteResult,
+      );
+      return {
+        ...normalized,
+        status: deriveTvHeartbeatStatus(normalized),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: stringifyError(error),
+        status: 'unknown',
+      };
+    }
+  }
+
+  try {
+    const tauriResponse = await invoke('device_action', {
+      action: 'status',
+      payload,
+    });
+    const normalized = normalizeActionResult('status', 'tauri', tauriResponse);
+    return {
+      ...normalized,
+      status: deriveTvHeartbeatStatus(normalized),
+    };
+  } catch (_tauriError) {
+    // fallback to web backend below
+  }
+
+  try {
+    const response = await postJsonWithTimeout(
+      `${WEB_BACKEND_URL}/device_action`,
+      {
+        action: 'status',
+        payload,
+      },
+      25000,
+    );
+
+    let webResult = response.data;
+    if (!response.ok) {
+      const detail =
+        webResult && typeof webResult === 'object' && 'error' in webResult
+          ? String(webResult.error)
+          : response.raw || `HTTP ${response.status}`;
+      webResult = { ok: false, error: detail };
+    }
+
+    const normalized = normalizeActionResult(
+      'status',
+      'web-backend',
+      webResult,
+    );
+    return {
+      ...normalized,
+      status: deriveTvHeartbeatStatus(normalized),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: stringifyError(error),
+      status: 'unknown',
+    };
+  }
+}
+
+async function refreshTvStatusesHeartbeat({ silent = true } = {}) {
+  if (isTvStatusHeartbeatRunning) {
+    return false;
+  }
+
+  if (!savedDevices.length) {
+    return false;
+  }
+
+  isTvStatusHeartbeatRunning = true;
+  try {
+    for (const device of savedDevices) {
+      const deviceIp = getSavedDeviceIp(device);
+      if (!deviceIp) {
+        continue;
+      }
+
+      const result = await runSingleTvHeartbeat(device);
+      setSavedDeviceRuntime(deviceIp, {
+        status: result.status,
+        lastChecked: formatUiTimestamp(),
+      });
+    }
+
+    renderSavedDeviceList(selectedSavedDeviceIp);
+    return true;
+  } catch (error) {
+    if (!silent) {
+      logLine(`TV heartbeat refresh failed: ${stringifyError(error)}`);
+    }
+    return false;
+  } finally {
+    isTvStatusHeartbeatRunning = false;
+  }
+}
+
+function stopTvStatusAutoRefresh() {
+  if (tvStatusHeartbeatTimerId) {
+    window.clearInterval(tvStatusHeartbeatTimerId);
+    tvStatusHeartbeatTimerId = null;
+  }
+}
+
+function startTvStatusAutoRefresh() {
+  stopTvStatusAutoRefresh();
+  void refreshTvStatusesHeartbeat({ silent: true });
+  tvStatusHeartbeatTimerId = window.setInterval(() => {
+    void refreshTvStatusesHeartbeat({ silent: true });
+  }, TV_STATUS_REFRESH_INTERVAL_MS);
 }
 
 function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
@@ -241,32 +1289,89 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
   listContainer.innerHTML = '';
 
   if (savedDevices.length === 0) {
-    const empty = document.createElement('li');
+    const empty = document.createElement('tr');
     empty.className = 'saved-device-empty';
-    empty.textContent = 'No saved devices yet.';
+    const emptyCell = document.createElement('td');
+    emptyCell.colSpan = 9;
+    emptyCell.textContent = 'No saved devices yet.';
+    empty.appendChild(emptyCell);
     listContainer.appendChild(empty);
+    updateDeleteSelectedButtonLabel();
     return;
   }
 
-  for (const device of savedDevices) {
-    const row = document.createElement('li');
-    row.className = 'saved-device-row';
+  const visibleDevices = getFilteredSavedDevices();
+  if (!visibleDevices.length) {
+    const empty = document.createElement('tr');
+    empty.className = 'saved-device-empty';
+    const emptyCell = document.createElement('td');
+    emptyCell.colSpan = 9;
+    emptyCell.textContent = 'No devices match current filters.';
+    empty.appendChild(emptyCell);
+    listContainer.appendChild(empty);
+    updateDeleteSelectedButtonLabel();
+    return;
+  }
 
-    const rowMain = document.createElement('div');
-    rowMain.className = 'saved-device-main';
+  for (const device of visibleDevices) {
+    const deviceIp = getSavedDeviceIp(device);
+    if (!deviceIp) {
+      continue;
+    }
+
+    const runtime = getSavedDeviceRuntime(deviceIp);
+    const deviceStatus = normalizeListStatus(runtime.status);
+    const agentStatus = agentStatusLabelForDevice(device);
+
+    const row = document.createElement('tr');
+    row.className = 'saved-device-row';
+    row.dataset.status = deviceStatus;
 
     const selectCheckbox = document.createElement('input');
     selectCheckbox.type = 'checkbox';
     selectCheckbox.className = 'saved-device-check';
-    selectCheckbox.checked = checkedSavedDeviceIps.has(device.ip);
-    selectCheckbox.setAttribute('aria-label', `Select ${device.ip}`);
+    selectCheckbox.checked = checkedSavedDeviceIps.has(deviceIp);
+    selectCheckbox.setAttribute('aria-label', `Select ${deviceIp}`);
 
     const item = document.createElement('div');
     item.className = 'saved-device-item';
-    item.textContent = `${device.ip}${device.site ? ` - ${device.site}` : ''}`;
+    item.textContent = getSavedDeviceName(device);
+
+    const ipCell = document.createElement('div');
+    ipCell.className = 'saved-device-ip';
+    ipCell.textContent = `${deviceIp}:${Number(device.port ?? 1515)} (ID ${Number(device.id ?? 0)})`;
+
+    const locationCell = document.createElement('div');
+    locationCell.textContent =
+      String(device.city ?? '').trim() ||
+      String(device.site ?? '').trim() ||
+      '-';
+
+    const protocolCell = document.createElement('div');
+    protocolCell.textContent = protocolLabelForList(device.protocol);
+
+    const agentCell = document.createElement('span');
+    agentCell.className = `saved-device-chip ${agentStatus}`;
+    agentCell.textContent = agentStatus;
+    const agentId = getDeviceAgentId(device);
+    if (agentId) {
+      agentCell.title = `Agent ID: ${agentId}`;
+    }
+
+    const statusCell = document.createElement('span');
+    statusCell.className = `saved-device-chip ${deviceStatus}`;
+    statusCell.textContent = deviceStatus;
+
+    const lastCheckCell = document.createElement('div');
+    lastCheckCell.textContent = runtime.lastChecked;
 
     const rowActions = document.createElement('div');
     rowActions.className = 'saved-device-row-actions';
+
+    const testBtn = document.createElement('button');
+    testBtn.type = 'button';
+    testBtn.className = 'saved-device-row-btn';
+    testBtn.textContent = 'Test';
 
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
@@ -278,23 +1383,24 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
     deleteBtn.className = 'saved-device-row-btn';
     deleteBtn.textContent = 'Delete';
 
-    if (device.ip === selectedIp) {
+    if (deviceIp === selectedIp) {
       item.classList.add('active');
       row.classList.add('active');
     }
 
     selectCheckbox.addEventListener('change', () => {
       if (selectCheckbox.checked) {
-        checkedSavedDeviceIps.add(device.ip);
+        checkedSavedDeviceIps.add(deviceIp);
       } else {
-        checkedSavedDeviceIps.delete(device.ip);
+        checkedSavedDeviceIps.delete(deviceIp);
       }
 
       persistDeviceSelectionState();
+      updateDeleteSelectedButtonLabel();
     });
 
-    item.addEventListener('click', () => {
-      const result = applySelectedDevice(device.ip);
+    const handleSelectRow = () => {
+      const result = applySelectedDevice(deviceIp);
       renderOutput(result);
       if (!result.ok) {
         showToast(
@@ -302,10 +1408,44 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
           'error',
         );
       }
+    };
+
+    row.addEventListener('click', (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('button, input, select, textarea, a, label')
+      ) {
+        return;
+      }
+      handleSelectRow();
+    });
+
+    testBtn.addEventListener('click', async () => {
+      const selectResult = applySelectedDevice(deviceIp);
+      renderOutput(selectResult);
+      if (!selectResult.ok) {
+        showToast(
+          `Test: ${stringifyError(selectResult.error || 'failed')}`,
+          'error',
+        );
+        return;
+      }
+
+      const testResult = await runConnectionTestTracked();
+      renderOutput(testResult);
+      if (testResult.ok) {
+        showToast('Test: device reachable', 'success');
+      } else {
+        showToast(
+          `Test: ${stringifyError(testResult.error || testResult.message || 'failed')}`,
+          'error',
+        );
+      }
     });
 
     openBtn.addEventListener('click', () => {
-      const result = applySelectedDevice(device.ip);
+      const result = applySelectedDevice(deviceIp);
       renderOutput(result);
       if (result.ok) {
         switchWorkflowPage('controls');
@@ -316,9 +1456,10 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
     });
 
     deleteBtn.addEventListener('click', async () => {
-      const result = await deleteSavedDeviceByIp(device.ip);
+      const result = await deleteSavedDeviceByIp(deviceIp);
       renderOutput(result);
       if (result.ok) {
+        savedDeviceRuntimeByIp.delete(deviceIp);
         showToast(`Delete: ${result.message || 'success'}`, 'success');
       } else {
         showToast(
@@ -328,20 +1469,50 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
       }
     });
 
-    rowMain.appendChild(selectCheckbox);
-    rowMain.appendChild(item);
+    const checkCell = document.createElement('td');
+    const nameCell = document.createElement('td');
+    const ipInfoCell = document.createElement('td');
+    const locationTd = document.createElement('td');
+    const protocolTd = document.createElement('td');
+    const agentTd = document.createElement('td');
+    const statusTd = document.createElement('td');
+    const lastCheckTd = document.createElement('td');
+    const actionTd = document.createElement('td');
+
+    checkCell.appendChild(selectCheckbox);
+    nameCell.appendChild(item);
+    ipInfoCell.appendChild(ipCell);
+    locationTd.appendChild(locationCell);
+    protocolTd.appendChild(protocolCell);
+    agentTd.appendChild(agentCell);
+    statusTd.appendChild(statusCell);
+    lastCheckTd.appendChild(lastCheckCell);
+
+    rowActions.appendChild(testBtn);
     rowActions.appendChild(openBtn);
     rowActions.appendChild(deleteBtn);
-    row.appendChild(rowMain);
-    row.appendChild(rowActions);
+    actionTd.appendChild(rowActions);
+
+    row.appendChild(checkCell);
+    row.appendChild(nameCell);
+    row.appendChild(ipInfoCell);
+    row.appendChild(locationTd);
+    row.appendChild(protocolTd);
+    row.appendChild(agentTd);
+    row.appendChild(statusTd);
+    row.appendChild(lastCheckTd);
+    row.appendChild(actionTd);
     listContainer.appendChild(row);
   }
+
+  updateDeleteSelectedButtonLabel();
 }
 
 function renderSavedDevices(list, selectedIp = '') {
   savedDevices = Array.isArray(list) ? list : [];
+  refreshSavedDeviceFilterOptions();
   const desiredIp = String(selectedIp || '').trim();
-  const validIps = new Set(savedDevices.map((item) => item.ip));
+  const validIps = new Set(savedDevices.map((item) => getSavedDeviceIp(item)));
   checkedSavedDeviceIps = new Set(
     Array.from(checkedSavedDeviceIps).filter((ip) => validIps.has(ip)),
   );
@@ -356,6 +1527,7 @@ function renderSavedDevices(list, selectedIp = '') {
 
   persistDeviceSelectionState();
   renderSavedDeviceList(selectedSavedDeviceIp);
+  renderExploreAgents();
 }
 
 function csvEscape(value) {
@@ -419,13 +1591,23 @@ async function exportDevicesCsv() {
     return { ok: false, error: 'No saved devices to export' };
   }
 
-  const lines = ['ip,display_id,site,description'];
+  const lines = [
+    'name,tv_ip,port,display_id,protocol,agent_id,site,city,zone,area,description',
+  ];
   for (const device of savedDevices) {
+    const tvIp = String(device.tv_ip ?? device.ip ?? '').trim();
     lines.push(
       [
-        csvEscape(device.ip),
+        csvEscape(device.name ?? ''),
+        csvEscape(tvIp),
+        csvEscape(Number(device.port ?? 1515)),
         csvEscape(Number(device.id ?? 0)),
+        csvEscape(device.protocol ?? 'AUTO'),
+        csvEscape(getDeviceAgentId(device)),
         csvEscape(device.site ?? ''),
+        csvEscape(device.city ?? ''),
+        csvEscape(device.zone ?? ''),
+        csvEscape(device.area ?? ''),
         csvEscape(device.description ?? ''),
       ].join(','),
     );
@@ -462,17 +1644,27 @@ async function importDevicesCsvFromText(csvText) {
   }
 
   const headerCells = parseCsvLine(rows[0]).map(normalizeCsvHeader);
-  const ipIndex = csvFieldIndex(headerCells, ['ip']);
+  const nameIndex = csvFieldIndex(headerCells, ['name']);
+  const ipIndex = csvFieldIndex(headerCells, ['tvip', 'ip']);
+  const portIndex = csvFieldIndex(headerCells, ['port']);
   const displayIdIndex = csvFieldIndex(headerCells, ['displayid', 'id']);
+  const protocolIndex = csvFieldIndex(headerCells, ['protocol']);
+  const agentIdIndex = csvFieldIndex(headerCells, ['agentid']);
   const siteIndex = csvFieldIndex(headerCells, ['site']);
+  const cityIndex = csvFieldIndex(headerCells, ['city']);
+  const zoneIndex = csvFieldIndex(headerCells, ['zone']);
+  const areaIndex = csvFieldIndex(headerCells, ['area']);
   const descriptionIndex = csvFieldIndex(headerCells, ['description']);
 
   if (ipIndex < 0) {
-    return { ok: false, error: 'CSV header must include ip' };
+    return { ok: false, error: 'CSV header must include tv_ip (or ip)' };
   }
 
   const existingByIp = new Map(
-    savedDevices.map((device) => [device.ip, device]),
+    savedDevices.map((device) => [
+      String(device.tv_ip ?? device.ip ?? '').trim(),
+      device,
+    ]),
   );
   let importedCount = 0;
   let lastImportedIp = '';
@@ -480,32 +1672,52 @@ async function importDevicesCsvFromText(csvText) {
 
   for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
     const cols = parseCsvLine(rows[rowIndex]);
-    const ip = String(cols[ipIndex] ?? '').trim();
-    if (!ip) {
+    const tvIp = String(cols[ipIndex] ?? '').trim();
+    if (!tvIp) {
       continue;
     }
 
     const rawId = String(cols[displayIdIndex] ?? '').trim();
     const parsedId = rawId === '' ? 0 : Number(rawId);
     const id = Number.isFinite(parsedId) ? parsedId : 0;
+    const existing = existingByIp.get(tvIp);
+    const name = String(cols[nameIndex] ?? '').trim();
+    const rawPort = String(cols[portIndex] ?? '').trim();
+    const parsedPort =
+      rawPort === '' ? Number(existing?.port ?? 1515) : Number(rawPort);
+    const port = Number.isFinite(parsedPort)
+      ? parsedPort
+      : Number(existing?.port ?? 1515);
+    const protocol =
+      String(cols[protocolIndex] ?? '').trim() ||
+      String(existing?.protocol ?? 'AUTO');
+    const agent_id = String(cols[agentIdIndex] ?? '').trim();
     const site = String(cols[siteIndex] ?? '').trim();
+    const city = String(cols[cityIndex] ?? '').trim();
+    const zone = String(cols[zoneIndex] ?? '').trim();
+    const area = String(cols[areaIndex] ?? '').trim();
     const description = String(cols[descriptionIndex] ?? '').trim();
-    const existing = existingByIp.get(ip);
 
     const payload = {
-      ip,
+      name: name || String(existing?.name ?? '').trim(),
+      tv_ip: tvIp,
+      ip: tvIp,
       id,
+      agent_id: agent_id || getDeviceAgentId(existing),
       site,
+      city,
+      zone,
+      area,
       description,
-      port: Number(existing?.port ?? 1515),
-      protocol: existing?.protocol ?? 'AUTO',
+      port,
+      protocol,
     };
 
     const result = await upsertSavedDeviceAny(payload);
     lastList = result.list;
-    existingByIp.set(ip, payload);
+    existingByIp.set(tvIp, payload);
     importedCount += 1;
-    lastImportedIp = ip;
+    lastImportedIp = tvIp;
   }
 
   if (!importedCount) {
@@ -541,8 +1753,8 @@ function normalizeSavedDeviceWeb(device) {
     return null;
   }
 
-  const ip = String(device.ip ?? '').trim();
-  if (!ip) {
+  const tvIp = String(device.tv_ip ?? device.ip ?? '').trim();
+  if (!tvIp) {
     return null;
   }
 
@@ -551,14 +1763,20 @@ function normalizeSavedDeviceWeb(device) {
   const protocol = String(device.protocol ?? 'AUTO').toUpperCase();
 
   return {
-    ip,
+    name: String(device.name ?? '').trim(),
+    tv_ip: tvIp,
+    ip: tvIp,
     port: Number.isFinite(port) ? port : 1515,
     id: Number.isFinite(id) ? id : 0,
     protocol:
       protocol === 'SIGNAGE_MDC' || protocol === 'SMART_TV_WS'
         ? protocol
         : 'AUTO',
+    agent_id: String(device.agent_id ?? device.agentId ?? '').trim(),
     site: String(device.site ?? '').trim(),
+    city: String(device.city ?? '').trim(),
+    zone: String(device.zone ?? '').trim(),
+    area: String(device.area ?? '').trim(),
     description: String(device.description ?? '').trim(),
   };
 }
@@ -603,7 +1821,9 @@ async function upsertSavedDeviceAny(device) {
       throw new Error('IP is required');
     }
 
-    const idx = current.findIndex((item) => item.ip === normalized.ip);
+    const idx = current.findIndex(
+      (item) => getSavedDeviceIp(item) === normalized.ip,
+    );
     if (idx >= 0) {
       current[idx] = normalized;
     } else {
@@ -622,7 +1842,7 @@ async function deleteSavedDeviceAny(ip) {
   } catch (_error) {
     const current = loadSavedDevicesWeb();
     const cleanedIp = String(ip ?? '').trim();
-    const next = current.filter((item) => item.ip !== cleanedIp);
+    const next = current.filter((item) => getSavedDeviceIp(item) !== cleanedIp);
 
     if (next.length === current.length) {
       throw new Error('Device not found');
@@ -635,6 +1855,7 @@ async function deleteSavedDeviceAny(ip) {
 
 async function refreshSavedDevices() {
   try {
+    await refreshRemoteAgentStatuses({ silent: true });
     const { list, source } = await loadSavedDevicesAny();
     renderSavedDevices(list, selectedSavedDeviceIp);
     logLine(`Loaded ${list.length} saved devices (${source})`);
@@ -651,12 +1872,21 @@ async function refreshSavedDevices() {
 }
 
 function readConnection() {
+  const agentIdInput = $('agentId');
+  const deviceNameInput = $('deviceName');
+  const tvIp = $('ip').value.trim();
   return {
-    ip: $('ip').value.trim(),
+    name: deviceNameInput ? deviceNameInput.value.trim() : '',
+    tv_ip: tvIp,
+    ip: tvIp,
     port: Number($('port').value),
     display_id: Number($('displayId').value),
     protocol: $('protocol').value,
+    agent_id: agentIdInput ? agentIdInput.value.trim() : '',
     site: $('site').value.trim(),
+    city: $('city')?.value.trim() || '',
+    zone: $('zone')?.value.trim() || '',
+    area: $('area')?.value.trim() || '',
     description: $('description').value.trim(),
   };
 }
@@ -779,7 +2009,7 @@ function renderOutput(payload) {
   }
 }
 
-async function fetchJsonWithTimeout(url, timeoutMs = 3500) {
+async function fetchJsonWithTimeout(url, timeoutMs = 3500, extraHeaders = {}) {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
@@ -790,7 +2020,7 @@ async function fetchJsonWithTimeout(url, timeoutMs = 3500) {
     const response = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...extraHeaders },
     });
 
     const text = await response.text();
@@ -819,7 +2049,12 @@ async function fetchJsonWithTimeout(url, timeoutMs = 3500) {
   }
 }
 
-async function postJsonWithTimeout(url, body, timeoutMs = 5500) {
+async function postJsonWithTimeout(
+  url,
+  body,
+  timeoutMs = 5500,
+  extraHeaders = {},
+) {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
@@ -833,6 +2068,7 @@ async function postJsonWithTimeout(url, body, timeoutMs = 5500) {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...extraHeaders,
       },
       body: JSON.stringify(body),
     });
@@ -863,9 +2099,71 @@ async function postJsonWithTimeout(url, body, timeoutMs = 5500) {
   }
 }
 
+function remoteHeaders() {
+  const headers = {};
+  if (WEB_CLOUD_API_KEY) {
+    headers['x-api-key'] = WEB_CLOUD_API_KEY;
+  }
+  return headers;
+}
+
+async function enqueueRemoteJob(agentId, kind, payload) {
+  const response = await postJsonWithTimeout(
+    `${WEB_BACKEND_URL}/api/remote/jobs`,
+    {
+      agent_id: agentId,
+      kind,
+      payload,
+    },
+    12000,
+    remoteHeaders(),
+  );
+
+  const body = response.data;
+  if (!response.ok || !body?.ok || !body?.job_id) {
+    const detail = body?.error || response.raw || `HTTP ${response.status}`;
+    throw new Error(`Remote enqueue failed: ${detail}`);
+  }
+  return body;
+}
+
+async function pollRemoteJob(jobId, timeoutMs) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const response = await fetchJsonWithTimeout(
+      `${WEB_BACKEND_URL}/api/remote/jobs/${encodeURIComponent(jobId)}`,
+      10000,
+      remoteHeaders(),
+    );
+
+    const body = response.data;
+    if (!response.ok || !body?.ok) {
+      const detail = body?.error || response.raw || `HTTP ${response.status}`;
+      throw new Error(`Remote job read failed: ${detail}`);
+    }
+
+    if (body.status === 'completed') {
+      return body;
+    }
+
+    if (body.status === 'failed') {
+      throw new Error(body.error || 'Remote execution failed');
+    }
+
+    await new Promise((resolve) =>
+      window.setTimeout(resolve, REMOTE_JOB_POLL_INTERVAL_MS),
+    );
+  }
+
+  throw new Error(
+    `Remote job timeout after ${Math.round(timeoutMs / 1000)}s. Agent may be offline.`,
+  );
+}
+
 async function runConnectionTest() {
-  const { ip } = readConnection();
-  if (!ip) {
+  const { tv_ip: tvIp } = readConnection();
+  if (!tvIp) {
     const error = 'IP is required before running Test.';
     const result = {
       ok: false,
@@ -877,16 +2175,52 @@ async function runConnectionTest() {
     logLine(`Test: ${error}`);
     return result;
   }
+  const ip = tvIp;
+
+  const selectedDevice =
+    savedDevices.find(
+      (item) => getSavedDeviceIp(item) === selectedSavedDeviceIp,
+    ) || null;
+  const agentIdInput = $('agentId');
+  const remoteAgentId = String(
+    (agentIdInput ? agentIdInput.value.trim() : '') ||
+      getDeviceAgentId(selectedDevice),
+  ).trim();
+  if (remoteAgentId) {
+    if (isAgentKnownOffline(remoteAgentId)) {
+      const message = `🔴 Agent offline (${remoteAgentId}) | Screen assumed offline (${ip})`;
+      const result = {
+        ok: false,
+        healthState: 'offline',
+        message,
+        error: `Agent ${remoteAgentId} is offline`,
+        backend: `remote:${remoteAgentId}`,
+        agent_id: remoteAgentId,
+        screenOnline: false,
+        ip,
+      };
+      setQuickOutputLine(message, 'offline');
+      logLine(
+        `Test: skipped remote check because agent ${remoteAgentId} is offline`,
+      );
+      renderOutput(result);
+      return result;
+    }
+
+    logLine(`Test: using remote agent route (${remoteAgentId})`);
+    return await callAction('status');
+  }
 
   let tauriProbeError = null;
   try {
-    const probe = await invoke('auto_probe', { ip });
+    const probe = await invoke('auto_probe', { ip: tvIp });
     if (probe?.ok) {
       $('port').value = Number(probe.port);
       $('protocol').value = probe.protocol;
 
       const statusPayload = {
-        ip,
+        tv_ip: tvIp,
+        ip: tvIp,
         port: Number(probe.port),
         display_id: Number($('displayId').value || 0),
         protocol: probe.protocol,
@@ -1364,7 +2698,7 @@ function initSmartTvKeys() {
 }
 
 function switchWorkflowPage(pageName) {
-  const validPages = new Set(['connection', 'controls', 'ws']);
+  const validPages = new Set(['connection', 'controls', 'ws', 'agents']);
   const normalizedPage = validPages.has(pageName) ? pageName : 'connection';
   const pages = document.querySelectorAll('.workflow-page');
   const tabs = document.querySelectorAll('.page-tab');
@@ -1442,10 +2776,84 @@ async function callAction(action, data = {}) {
     ...data,
     timeout_s: Math.ceil(timeoutMs / 1000),
   };
+  const tvIp = String(payload.tv_ip || payload.ip || '').trim();
+  payload.tv_ip = tvIp;
+  payload.ip = tvIp;
+  const selectedDevice =
+    savedDevices.find(
+      (item) => getSavedDeviceIp(item) === selectedSavedDeviceIp,
+    ) || null;
+  const agentId = String(
+    payload.agent_id || getDeviceAgentId(selectedDevice),
+  ).trim();
+  if (agentId) {
+    payload.agent_id = agentId;
+  }
   let tauriFallbackErrorText = null;
   logLine(
-    `Action '${action}' sent to ${payload.ip}:${payload.port} (${payload.protocol})`,
+    `Action '${action}' sent to ${tvIp}:${payload.port} (${payload.protocol})${agentId ? ` via agent ${agentId}` : ''}`,
   );
+
+  if (agentId) {
+    try {
+      const queued = await enqueueRemoteJob(agentId, 'device_action', {
+        action,
+        payload: {
+          ...payload,
+          tv_ip: tvIp,
+          ip: tvIp,
+        },
+      });
+
+      const completed = await pollRemoteJob(queued.job_id, timeoutMs + 15000);
+      const remoteResult =
+        completed?.result && typeof completed.result === 'object'
+          ? completed.result
+          : { ok: false, error: 'Remote job completed without result payload' };
+
+      const normalized = normalizeActionResult(
+        action,
+        `remote:${agentId}`,
+        remoteResult,
+      );
+      normalized.agent_id = agentId;
+      normalized.job_id = queued.job_id;
+      renderOutput(normalized);
+
+      if (normalized.ok) {
+        logLine(
+          `Action '${action}' completed (remote agent ${agentId})${normalized.ack ? ' [ACK]' : ''}`,
+        );
+      } else if (normalized.nak) {
+        logLine(
+          `Action '${action}' rejected (remote agent ${agentId}) [NAK]: ${String(normalized.error ?? 'unknown error')}`,
+        );
+      } else {
+        logLine(
+          `Action '${action}' failed (remote agent ${agentId}): ${String(normalized.error ?? 'unknown error')}`,
+        );
+      }
+      return normalized;
+    } catch (error) {
+      const errorText = stringifyError(error);
+      logLine(
+        `Action '${action}' failed (remote agent ${agentId}): ${errorText}`,
+      );
+      const failed = {
+        ok: false,
+        action,
+        backend: `remote:${agentId}`,
+        agent_id: agentId,
+        error: errorText,
+        nak: detectNak(errorText),
+        ack: false,
+        healthState: 'warn',
+        message: 'Remote agent queue/poll failed.',
+      };
+      renderOutput(failed);
+      return failed;
+    }
+  }
 
   try {
     const response = await invoke('device_action', { action, payload });
@@ -1611,14 +3019,28 @@ function requireSignageProtocol(actionLabel) {
 
 async function addCurrentDevice() {
   const payload = readConnection();
-  const ip = String(payload.ip || '').trim();
+  const name = String(payload.name || '').trim();
+  if (!name) {
+    const error = 'Device Name is required';
+    logLine(`Add device failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  const ip = String(payload.tv_ip || payload.ip || '').trim();
   if (!ip) {
     const error = 'IP is required';
     logLine(`Add device failed: ${error}`);
     return { ok: false, error };
   }
 
-  const exists = savedDevices.some((item) => item.ip === ip);
+  const agentId = String(payload.agent_id || '').trim();
+  if (!agentId) {
+    const error = 'Agent ID is required';
+    logLine(`Add device failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  const exists = savedDevices.some((item) => getSavedDeviceIp(item) === ip);
   if (exists) {
     const error = `${ip} already exists. Select it and use Update.`;
     logLine(`Add device skipped: ${error}`);
@@ -1627,11 +3049,17 @@ async function addCurrentDevice() {
 
   try {
     const { list, source } = await upsertSavedDeviceAny({
+      name,
+      tv_ip: ip,
       ip,
       port: payload.port,
       id: payload.display_id,
       protocol: payload.protocol,
+      agent_id: agentId,
       site: payload.site,
+      city: payload.city,
+      zone: payload.zone,
+      area: payload.area,
       description: payload.description,
     });
     renderSavedDevices(list, ip);
@@ -1653,7 +3081,7 @@ async function saveCurrentDevice() {
   }
 
   const selected = savedDevices.find(
-    (item) => item.ip === selectedSavedDeviceIp,
+    (item) => getSavedDeviceIp(item) === selectedSavedDeviceIp,
   );
   if (!selected) {
     const error = `Selected device ${selectedSavedDeviceIp} not found.`;
@@ -1661,9 +3089,23 @@ async function saveCurrentDevice() {
     return { ok: false, error };
   }
 
-  const nextIp = String(payload.ip || '').trim();
+  const nextIp = String(payload.tv_ip || payload.ip || '').trim();
   if (!nextIp) {
     const error = 'IP is required';
+    logLine(`Update failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  const nextName = String(payload.name || '').trim();
+  if (!nextName) {
+    const error = 'Device Name is required';
+    logLine(`Update failed: ${error}`);
+    return { ok: false, error };
+  }
+
+  const nextAgentId = String(payload.agent_id || '').trim();
+  if (!nextAgentId) {
+    const error = 'Agent ID is required';
     logLine(`Update failed: ${error}`);
     return { ok: false, error };
   }
@@ -1674,11 +3116,17 @@ async function saveCurrentDevice() {
     }
 
     const { list, source } = await upsertSavedDeviceAny({
+      name: nextName,
+      tv_ip: nextIp,
       ip: nextIp,
       port: payload.port,
       id: payload.display_id,
       protocol: payload.protocol,
+      agent_id: nextAgentId,
       site: payload.site,
+      city: payload.city,
+      zone: payload.zone,
+      area: payload.area,
       description: payload.description,
     });
     renderSavedDevices(list, nextIp);
@@ -1772,6 +3220,7 @@ function clearCheckedDevices() {
   checkedSavedDeviceIps = new Set();
   persistDeviceSelectionState();
   renderSavedDeviceList(selectedSavedDeviceIp);
+  updateDeleteSelectedButtonLabel();
   return { ok: true, message: 'cleared selected checkboxes' };
 }
 
@@ -1790,7 +3239,9 @@ function applySelectedDevice(selectedIpOverride) {
     return { ok: false, error: 'No selected device' };
   }
 
-  const selected = savedDevices.find((item) => item.ip === selectedIp);
+  const selected = savedDevices.find(
+    (item) => getSavedDeviceIp(item) === selectedIp,
+  );
   if (!selected) {
     selectedSavedDeviceIp = '';
     persistDeviceSelectionState();
@@ -2038,7 +3489,7 @@ async function sendHdmiMacro(hdmi) {
 }
 
 bindButtonAction('btnStatus', () => callAction('status'));
-bindButtonAction('btnTestConnection', runConnectionTest);
+bindButtonAction('btnTestConnection', runConnectionTestTracked);
 bindButtonAction('btnPowerOn', () => callAction('power', { state: 'ON' }));
 bindButtonAction('btnPowerOff', () => callAction('power', { state: 'OFF' }));
 bindButtonAction('btnReboot', () => callAction('power', { state: 'REBOOT' }));
@@ -2052,8 +3503,11 @@ bindButtonAction('btnLoadDevices', refreshSavedDevices);
 bindButtonAction('btnAddDevice', addCurrentDevice);
 bindButtonAction('btnSaveDevice', saveCurrentDevice);
 bindButtonAction('btnDeleteDevice', deleteCheckedDevices);
+bindButtonAction('btnDeleteDeviceToolbar', deleteCheckedDevices);
 bindButtonAction('btnClearCheckedDevices', clearCheckedDevices);
 bindButtonAction('btnAutoProbe', runAutoProbe);
+bindButtonAction('btnClearSavedFilters', clearSavedDeviceFilters);
+bindButtonAction('btnRefreshAllStatus', refreshAllSavedDeviceStatuses);
 bindButtonAction('btnExportDevices', exportDevicesCsv);
 bindButtonAction('btnImportDevices', () => {
   const input = $('deviceCsvInput');
@@ -2098,8 +3552,17 @@ $('cliCommand').addEventListener('change', (event) =>
   renderCliArgRows(event.target.value),
 );
 
-refreshSavedDevices();
+refreshSavedDevices().finally(() => {
+  startAgentStatusAutoRefresh();
+  startTvStatusAutoRefresh();
+});
 initSmartTvKeys();
 loadCliCatalog();
 initWorkflowNavigation();
+initSavedDeviceToolbar();
 logLine('Dashboard initialized');
+
+window.addEventListener('beforeunload', () => {
+  stopAgentStatusAutoRefresh();
+  stopTvStatusAutoRefresh();
+});

@@ -1,212 +1,142 @@
 # Samsung Hybrid Control (Tauri)
 
-This repository is focused on a **Tauri + Python bridge** architecture for Samsung signage/TV control.
+Samsung display control app using a Tauri frontend and Python backend, with support for local direct control and Option B remote agent routing.
 
 ## Project layout
 
-- `tauri-app/` — Tauri/web frontend + Rust shell
+- `tauri-app/` — frontend app (Vite + Tauri shell)
 - `tauri-app/py/bridge.py` — Python command bridge to Samsung control libraries
-- `saved_devices.json` — persisted device list shared by the app
-- `requirements.txt` — Python dependencies used by the bridge
+- `tauri-app/py/web_backend.py` — local backend + Option B broker endpoints
+- `tauri-app/py/option_b_agent.py` — polling agent for remote job execution
+- `saved_devices.json` — persisted device list
+- `requirements.txt` — Python dependencies
 
-## Migration status (Phase 3 baseline)
+## Core logic flow
 
-Implemented:
+### 1) Device data model
 
-- Desktop app shell based on Tauri
-- Web UI for core controls:
-  - status
-  - power on/off/reboot
-  - set volume
-  - set brightness (signage)
-  - set mute
-  - set input source
-- Rust command layer (`tauri-app/src-tauri/src/main.rs`)
-- Python bridge (`tauri-app/py/bridge.py`) reusing the Python control stack
-- Saved devices manager (load, apply, save/update, delete)
-- Auto Probe protocol/port detection order: `1515`, `8002`, `8001`
-- Command Log panel for diagnostics
-- MDC CLI controls (manual command + GET/SET)
-- Smart TV key sender (repeat support)
-- HDMI macros for Smart TV (`HDMI1`..`HDMI4`)
+Each saved device keeps:
+
+- `name`
+- `tv_ip`
+- `port`
+- `id`
+- `protocol` (`AUTO`, `SIGNAGE_MDC`, `SMART_TV_WS`)
+- `agent_id` (empty = local/direct mode)
+- optional metadata (`site`, `city`, `zone`, `area`, `description`)
+
+### 2) Command routing
+
+#### Local/direct mode (`agent_id` empty)
+
+1. UI selects a TV.
+2. Frontend sends command to local backend.
+3. Backend talks directly to target TV IP/port.
+
+#### Option B remote mode (`agent_id` present)
+
+1. Frontend sends request with `agent_id` + `tv_ip`.
+2. Backend queues job by `agent_id`.
+3. Matching polling agent (`AGENT_ID`) receives job.
+4. Agent executes locally in its LAN and posts result back.
+5. Frontend polls job/result and updates UI status.
+
+### 3) Status flow
+
+- Agent statuses refresh automatically and can be refreshed manually.
+- TV statuses refresh via heartbeat loop and can also be tested manually.
+- If a device has an assigned agent and that agent is offline, remote TV checks are skipped.
+
+### 4) Explore Agents flow
+
+1. Open **Explore Agents** page.
+2. See tracked Agent IDs from saved devices with status + timestamp.
+3. Click agent row to show TVs assigned to that agent.
+4. Click same agent row again to collapse details.
+5. Click a TV row in that list to auto-select it and open **Controls** page.
+
+## Current implemented features
+
+- Saved devices manager (load/apply/save/delete)
+- Core controls (status, power, volume, brightness, mute, input)
+- MDC CLI commands (manual GET/SET)
+- Smart TV key sender (repeat)
+- HDMI macros (`HDMI1`..`HDMI4`)
+- Command Log
+- Explore Agents page with agent-to-TV drill-down
 
 ## Prerequisites
 
 - Node.js 18+
-- Rust (stable) + Visual Studio Build Tools on Windows
 - Python 3.x
+- Rust + Visual Studio Build Tools (only for Tauri desktop run/build)
 
-## Python dependencies
+## Install dependencies
 
-Install from project root:
+From project root:
 
 ```bash
 py -m pip install -r requirements.txt
 ```
 
-Installed packages:
+From `tauri-app`:
 
-- `python-samsung-mdc`
-- `samsungtvws`
+```bash
+npm install
+```
 
-## Run as web app (no Rust required)
+## Run
+
+### Web UI
 
 ```bash
 cd tauri-app
-npm install
 npm run dev
 ```
 
-Open the local URL shown by Vite (typically `http://localhost:5173`).
-
-## Run as Tauri desktop app
+### Tauri desktop
 
 ```bash
 cd tauri-app
-npm install
 npm run tauri dev
 ```
 
-## Build Windows EXE with GitHub Actions
+### Backend (required for API/Option B paths)
 
-- Build workflow: `.github/workflows/build-windows.yml`
-- Release workflow: `.github/workflows/release-windows.yml`
-- Trigger flow: push to `main` -> Build -> Release (automatic)
-
-Release checklist:
-
-1. Commit and push latest changes to `main`.
-2. Ensure app version is updated consistently.
-3. Wait for Build workflow success.
-4. Release publishes assets and matching tag (`vX.Y.Z`).
-
-## Notes
-
-- CLI command schema in web mode: `tauri-app/src/cli_catalog.json`
-- Regenerate schema from Python metadata:
-
-```bash
-cd tauri-app
-py py/export_cli_catalog.py
-```
-
----
-
-# Tailscale Flow Runbook
-
-## 1) Real command path
-
-### MDC path (signage)
-
-1. UI (Tauri frontend) triggers action (`status`, `cli_get`, `set_input`, etc.).
-2. Frontend calls local backend (`/device_action` or Tauri invoke).
-3. Python bridge uses `python-samsung-mdc` to open TCP to `TV_IP:1515`.
-4. OS routing sends packets through Tailscale subnet route to Raspberry Pi.
-5. Pi forwards to TV on LAN.
-6. TV replies back through Pi -> Tailscale -> backend -> UI.
-
-### Smart TV WS path (consumer)
-
-Same flow, but destination ports are usually `8002`/`8001` and backend uses `samsungtvws`.
-
-## 2) Important understanding
-
-- Backend code does **not** explicitly "connect to Tailscale".
-- Backend just opens sockets to target IP/port.
-- Tailscale + OS routing decide transport path.
-- Most intermittent failures are network state (route/ARP/cache), not app logic.
-
-## 3) Per-hop checks (fast)
-
-### Hop A: UI -> backend local health
-
-Run on the machine where app is running:
-
-```bash
-curl http://127.0.0.1:8765/health
-```
-
-Expected: `{"ok": true, ...}`
-
-If fail: start backend:
+From project root:
 
 ```bash
 py tauri-app/py/web_backend.py
 ```
 
-### Hop B: backend host -> target TV reachability
+### Option B agent (required for remote queued jobs)
 
-From backend host or Pi:
-
-```bash
-ping -c 3 192.168.1.166
-nc -vz -w 3 192.168.1.166 1515
-```
-
-For WS mode:
+From project root:
 
 ```bash
-nc -vz -w 3 192.168.1.166 8002
-nc -vz -w 3 192.168.1.166 8001
+set CLOUD_BASE_URL=http://127.0.0.1:8765
+set AGENT_ID=site-bucharest
+set AGENT_SHARED_SECRET=replace-with-strong-random-secret
+set LOCAL_BACKEND_URL=http://127.0.0.1:8765
+py tauri-app/py/option_b_agent.py
 ```
 
-### Hop C: Pi routing correctness (critical)
+## Security envs (when auth is required)
 
-On Pi:
+Backend process:
 
 ```bash
-ip -4 addr
-ip route get 192.168.1.166
+set REMOTE_AUTH_REQUIRED=true
+set CLOUD_API_KEY=replace-with-strong-random-secret
+set AGENT_SHARED_SECRET=replace-with-strong-random-secret
 ```
 
-Healthy output should show direct LAN dev (example `dev wlan0`).
-
-### Hop D: protocol sanity
-
-- MDC commands require: `SIGNAGE_MDC` + port `1515`.
-- WS commands require: `SMART_TV_WS` + `8002/8001`.
-- MDC display id: test both `0` and `1`.
-
-## 4) When it worked yesterday and fails today
-
-Most common causes:
-
-- route cache / ARP state drift on Pi
-- ICMP redirect-learned route weirdness
-- TV boot/sleep state (MDC not responding yet)
-- temporary packet loss on LAN
-
-## 5) Quick recovery without reboot (Pi)
+Frontend (`tauri-app/.env`):
 
 ```bash
-sudo ip route flush cache
-sudo ip neigh flush dev wlan0
-sudo ip route replace 192.168.1.0/24 dev wlan0 src $(ip -4 -o addr show wlan0 | awk '{print $4}' | cut -d/ -f1)
-ip route get 192.168.1.166
-nc -vz -w 3 192.168.1.166 1515
+VITE_CLOUD_API_KEY=replace-with-strong-random-secret
 ```
 
-## 6) Production hardening checklist
+## Next tasks
 
-- Use static IP or DHCP reservation for every TV.
-- Use static IP or DHCP reservation for Pi.
-- Keep Pi and TVs in same stable subnet/VLAN where possible.
-- Keep protocol/port pinned in app profiles (`1515` for signage MDC).
-- Keep backend timeout tuning.
-
-## 7) Failure signature mapping
-
-- `Request timeout` / `WinError 121` / `response header read timeout`
-  - Usually path/routing/latency, not command syntax.
-- `NAK` response
-  - Device reachable, command rejected by firmware/mode/source.
-- `connection refused` / `failed to fetch`
-  - Backend down or target port closed.
-
-## 8) One-line diagnostic sequence (Pi)
-
-```bash
-ip route get 192.168.1.166 && ping -c 3 192.168.1.166 && nc -vz -w 3 192.168.1.166 1515
-```
-
-If this passes but app still fails, focus on protocol/id/command compatibility, not network path.
+See [TODO.md](TODO.md).
