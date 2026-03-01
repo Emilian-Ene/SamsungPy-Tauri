@@ -26,6 +26,11 @@
     "active": true,
     "targets": "all",
     "publisher": "Ionut Ene (dev)",
+    "windows": {
+      "nsis": {
+        "installerHooks": "./windows/installer-hooks.nsh"
+      }
+    },
     "resources": [
       "../py/bridge.py",
       "../py/web_backend.py",

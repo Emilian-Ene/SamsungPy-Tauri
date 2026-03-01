@@ -15,7 +15,8 @@ const WEB_SAVED_DEVICES_KEY = 'samsung_saved_devices_v1';
 const WEB_CLOUD_BASE_URL = String(import.meta.env.VITE_CLOUD_BASE_URL || '')
   .trim()
   .replace(/\/+$/, '');
-const WEB_BACKEND_URL = WEB_CLOUD_BASE_URL || 'http://127.0.0.1:8765';
+const LOCAL_WEB_BACKEND_URL = 'http://127.0.0.1:8765';
+const WEB_BACKEND_URL = WEB_CLOUD_BASE_URL || LOCAL_WEB_BACKEND_URL;
 const WEB_CLOUD_API_KEY = import.meta.env.VITE_CLOUD_API_KEY || '';
 const REMOTE_JOB_POLL_INTERVAL_MS = 1200;
 const AGENT_STATUS_REFRESH_INTERVAL_MS = 15000;
@@ -190,6 +191,33 @@ function stringifyError(error) {
     return String(error.message);
   }
   return String(error);
+}
+
+function formatNetworkFetchError(error, url) {
+  const message = stringifyError(error);
+  const isFetchNetworkError =
+    /failed to fetch|networkerror|load failed|fetch failed/i.test(message);
+  if (!isFetchNetworkError) {
+    return message;
+  }
+
+  let endpoint = String(url || '').trim();
+  try {
+    const parsed = new URL(url);
+    endpoint = `${parsed.origin}${parsed.pathname}`;
+  } catch (_error) {
+    // keep raw url
+  }
+
+  const remoteApiCall = /\/api\/remote\//i.test(String(url || ''));
+  const usingLocalFallback =
+    !WEB_CLOUD_BASE_URL && WEB_BACKEND_URL === LOCAL_WEB_BACKEND_URL;
+  const hint =
+    remoteApiCall && usingLocalFallback
+      ? `Hint: this build is using local fallback ${LOCAL_WEB_BACKEND_URL}. Remote agents require cloud backend URL (VITE_CLOUD_BASE_URL) in the built app.`
+      : 'Hint: verify internet/proxy/firewall and TLS trust on this PC for the target backend.';
+
+  return `${message} (${endpoint}). ${hint}`;
 }
 
 function showToast(message, type = 'info') {
@@ -1260,6 +1288,9 @@ async function runSingleTvHeartbeat(device) {
         ok: false,
         error: stringifyError(error),
         status: 'unknown',
+        backend: `remote:${agentId}`,
+        agent_id: agentId,
+        backend_url: WEB_BACKEND_URL,
       };
     }
   }
@@ -2129,7 +2160,7 @@ async function fetchJsonWithTimeout(url, timeoutMs = 3500, extraHeaders = {}) {
     if (timedOut) {
       throw new Error(`Request timeout after ${timeoutMs}ms`);
     }
-    throw error;
+    throw new Error(formatNetworkFetchError(error, url));
   } finally {
     clearTimeout(timer);
   }
@@ -2179,7 +2210,7 @@ async function postJsonWithTimeout(
     if (timedOut) {
       throw new Error(`Request timeout after ${timeoutMs}ms`);
     }
-    throw error;
+    throw new Error(formatNetworkFetchError(error, url));
   } finally {
     clearTimeout(timer);
   }
@@ -2934,6 +2965,7 @@ async function callAction(action, data = {}) {
         action,
         backend: `remote:${agentId}`,
         agent_id: agentId,
+        backend_url: WEB_BACKEND_URL,
         error: errorText,
         nak: detectNak(errorText),
         ack: false,
