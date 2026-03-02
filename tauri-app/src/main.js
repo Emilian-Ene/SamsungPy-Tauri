@@ -469,6 +469,14 @@ function isAgentKnownOffline(agentId) {
   return normalizeListStatus(remoteAgentStatusById[id]?.status) === 'offline';
 }
 
+function getAgentCachedStatus(agentId) {
+  const id = String(agentId ?? '').trim();
+  if (!id) {
+    return 'unknown';
+  }
+  return normalizeListStatus(remoteAgentStatusById[id]?.status);
+}
+
 function getSavedDeviceRuntime(ip) {
   const key = String(ip ?? '').trim();
   if (!key) {
@@ -1230,10 +1238,11 @@ async function runSingleTvHeartbeat(device) {
 
   const agentId = getDeviceAgentId(device);
   if (agentId) {
-    if (isAgentKnownOffline(agentId)) {
+    const agentStatus = getAgentCachedStatus(agentId);
+    if (agentStatus !== 'online') {
       return {
         ok: false,
-        error: `Agent ${agentId} is offline`,
+        error: `Agent ${agentId} is not online (${agentStatus})`,
         status: 'offline',
         backend: `remote:${agentId}`,
         agent_id: agentId,
@@ -1953,9 +1962,11 @@ async function deleteSavedDeviceAny(ip) {
   }
 }
 
-async function refreshSavedDevices() {
+async function refreshSavedDevices({ refreshAgentsFirst = true } = {}) {
   try {
-    await refreshRemoteAgentStatuses({ silent: true });
+    if (refreshAgentsFirst) {
+      await refreshRemoteAgentStatuses({ silent: true });
+    }
     const { list, source } = await loadSavedDevicesAny();
     renderSavedDevices(list, selectedSavedDeviceIp);
     logLine(`Loaded ${list.length} saved devices (${source})`);
@@ -2414,13 +2425,14 @@ async function runConnectionTest() {
       getDeviceAgentId(selectedDevice),
   );
   if (remoteAgentId) {
-    if (isAgentKnownOffline(remoteAgentId)) {
-      const message = `🔴 Agent offline (${remoteAgentId}) | Screen assumed offline (${ip})`;
+    const agentStatus = getAgentCachedStatus(remoteAgentId);
+    if (agentStatus !== 'online') {
+      const message = `🔴 Agent not online (${remoteAgentId}: ${agentStatus}) | Screen assumed offline (${ip})`;
       const result = {
         ok: false,
         healthState: 'offline',
         message,
-        error: `Agent ${remoteAgentId} is offline`,
+        error: `Agent ${remoteAgentId} is not online (${agentStatus})`,
         backend: `remote:${remoteAgentId}`,
         agent_id: remoteAgentId,
         screenOnline: false,
@@ -2428,7 +2440,7 @@ async function runConnectionTest() {
       };
       setQuickOutputLine(message, 'offline');
       logLine(
-        `Test: skipped remote check because agent ${remoteAgentId} is offline`,
+        `Test: skipped remote check because agent ${remoteAgentId} is not online (${agentStatus})`,
       );
       renderOutput(result);
       return result;
@@ -3718,14 +3730,20 @@ $('cliCommand').addEventListener('change', (event) =>
   renderCliArgRows(event.target.value),
 );
 
-refreshSavedDevices().finally(() => {
-  startAgentStatusAutoRefresh();
-  startTvStatusAutoRefresh();
-});
-loadCliCatalog();
 initWorkflowNavigation();
 initSavedDeviceToolbar();
-logLine('Dashboard initialized');
+
+async function initializeDashboard() {
+  await refreshSavedDevices({ refreshAgentsFirst: false });
+  await loadCliCatalog();
+  await refreshRemoteAgentStatuses({ silent: true });
+  await refreshAllSavedDeviceStatuses();
+  startAgentStatusAutoRefresh();
+  startTvStatusAutoRefresh();
+  logLine('Dashboard initialized');
+}
+
+void initializeDashboard();
 
 window.addEventListener('beforeunload', () => {
   stopAgentStatusAutoRefresh();
