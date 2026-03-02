@@ -1,4 +1,4 @@
-# Samsung Hybrid Control (Tauri)
+# Samsung Control (Tauri)
 
 Samsung display control app using a Tauri frontend and Python backend, with support for local direct control and Option B remote agent routing.
 

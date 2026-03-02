@@ -40,6 +40,13 @@
           >
             Explore Agents
           </button>
+          <button
+            class="page-tab"
+            data-page-target="monitor"
+            aria-selected="false"
+          >
+            Timestamp Monitor
+          </button>
         </div>
 
         <div class="sidebar-note">Nexus style dashboard theme</div>
@@ -48,8 +55,8 @@
       <main class="app">
         <header class="topbar">
           <div class="topbar-heading">
-            <h1>Samsung Hybrid Control</h1>
-            <p>Smart signage + TV operations dashboard</p>
+            <h1>Samsung Control</h1>
+            <p>Smart signage dashboard</p>
           </div>
           <div class="topbar-search-wrap">
             <input type="text" placeholder="Search actions" disabled />
@@ -61,8 +68,7 @@
             <div class="profile-pill">
               <span class="avatar-dot"></span>
               <div>
-                <strong>Ionut</strong>
-                <small>Team</small>
+                <strong>MCD</strong>
               </div>
             </div>
           </div>
@@ -161,7 +167,15 @@
               <table class="saved-device-table" aria-label="Saved devices">
                 <thead>
                   <tr>
-                    <th></th>
+                    <th>
+                      <input
+                        id="savedSelectAll"
+                        class="saved-device-check"
+                        type="checkbox"
+                        aria-label="Select all visible devices"
+                        title="Select all visible devices"
+                      />
+                    </th>
                     <th>
                       <button
                         id="btnSortSavedName"
@@ -386,7 +400,7 @@
                       <th>ID</th>
                       <th>Protocol</th>
                       <th>Site</th>
-                      <th>TV</th>
+                      <th>Status</th>
                       <th>Agent</th>
                       <th>Last</th>
                     </tr>
@@ -397,6 +411,56 @@
                   ></tbody>
                 </table>
               </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="pageMonitor" class="workflow-page" data-page="monitor">
+          <section class="card">
+            <h2>Timestamp Monitor</h2>
+            <div class="agents-status-row timestamp-monitor-row">
+              <span
+                >Last update:
+                <strong id="timestampMonitorLastUpdatedAt">-</strong></span
+              >
+              <button id="btnRefreshTimestampMonitor" type="button">
+                Refresh Now
+              </button>
+            </div>
+            <div class="saved-device-list-wrap">
+              <table class="saved-device-table" aria-label="Timestamp monitor">
+                <thead>
+                  <tr>
+                    <th>
+                      <button
+                        id="btnSortMonitorName"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        Name ↕
+                      </button>
+                    </th>
+                    <th>IP</th>
+                    <th>
+                      <button
+                        id="btnSortMonitorAgent"
+                        class="saved-sort-btn"
+                        type="button"
+                      >
+                        Agent ↕
+                      </button>
+                    </th>
+                    <th>Current</th>
+                    <th>Last Online</th>
+                    <th>Offline Since</th>
+                    <th>Last Check</th>
+                  </tr>
+                </thead>
+                <tbody
+                  id="timestampMonitorList"
+                  class="saved-device-list"
+                ></tbody>
+              </table>
             </div>
           </section>
         </div>

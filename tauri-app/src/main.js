@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 let savedDevices = [];
 const WEB_SELECTED_DEVICE_KEY = 'samsung_selected_device_ip_v1';
 const WEB_CHECKED_DEVICES_KEY = 'samsung_checked_devices_v1';
+const WEB_DEVICE_RUNTIME_KEY = 'samsung_saved_device_runtime_v1';
 let selectedSavedDeviceIp = localStorage.getItem(WEB_SELECTED_DEVICE_KEY) || '';
 let checkedSavedDeviceIps = new Set();
 let cliCommands = [];
@@ -21,15 +22,19 @@ const WEB_CLOUD_API_KEY = import.meta.env.VITE_CLOUD_API_KEY || '';
 const REMOTE_JOB_POLL_INTERVAL_MS = 1200;
 const AGENT_STATUS_REFRESH_INTERVAL_MS = 15000;
 const TV_STATUS_REFRESH_INTERVAL_MS = 20000;
+const TIMESTAMP_MONITOR_REFRESH_INTERVAL_MS = 60000;
 const AGENT_ONLINE_THRESHOLD_MS = 45000;
 const savedDeviceRuntimeByIp = new Map();
 let remoteAgentStatusById = {};
 let agentsLastUpdatedAt = '-';
 let remoteAgentStatusTimerId = null;
 let tvStatusHeartbeatTimerId = null;
+let timestampMonitorTimerId = null;
 let isTvStatusHeartbeatRunning = false;
 let savedSortBy = 'name';
 let savedSortDirection = 'asc';
+let monitorSortBy = 'name';
+let monitorSortDirection = 'asc';
 let agentsSortDirection = 'asc';
 let selectedExploreAgentId = '';
 
@@ -46,6 +51,31 @@ try {
 } catch (_error) {
   checkedSavedDeviceIps = new Set();
 }
+
+try {
+  const rawRuntime = localStorage.getItem(WEB_DEVICE_RUNTIME_KEY);
+  if (rawRuntime) {
+    const parsedRuntime = JSON.parse(rawRuntime);
+    if (parsedRuntime && typeof parsedRuntime === 'object') {
+      for (const [ip, runtime] of Object.entries(parsedRuntime)) {
+        const key = String(ip || '').trim();
+        if (!key || !runtime || typeof runtime !== 'object') {
+          continue;
+        }
+
+        savedDeviceRuntimeByIp.set(key, {
+          status: normalizeListStatus(runtime.status),
+          lastChecked: String(runtime.lastChecked ?? '-'),
+          lastOnlineAt: String(runtime.lastOnlineAt ?? '-'),
+          lastOfflineAt: String(runtime.lastOfflineAt ?? '-'),
+        });
+      }
+    }
+  }
+} catch (_error) {
+  savedDeviceRuntimeByIp.clear();
+}
+
 const notyf = new Notyf({
   duration: 2600,
   position: { x: 'right', y: 'top' },
@@ -107,6 +137,25 @@ function persistDeviceSelectionState() {
     WEB_CHECKED_DEVICES_KEY,
     JSON.stringify(Array.from(checkedSavedDeviceIps)),
   );
+}
+
+function persistSavedDeviceRuntimeState() {
+  const payload = {};
+  for (const [ip, runtime] of savedDeviceRuntimeByIp.entries()) {
+    const key = String(ip || '').trim();
+    if (!key || !runtime || typeof runtime !== 'object') {
+      continue;
+    }
+
+    payload[key] = {
+      status: normalizeListStatus(runtime.status),
+      lastChecked: String(runtime.lastChecked ?? '-'),
+      lastOnlineAt: String(runtime.lastOnlineAt ?? '-'),
+      lastOfflineAt: String(runtime.lastOfflineAt ?? '-'),
+    };
+  }
+
+  localStorage.setItem(WEB_DEVICE_RUNTIME_KEY, JSON.stringify(payload));
 }
 
 function nowTag() {
@@ -207,6 +256,62 @@ function showToast(message, type = 'info') {
   const normalizedType =
     type === 'success' || type === 'error' || type === 'info' ? type : 'info';
   notyf.open({ type: normalizedType, message });
+}
+
+function isTauriRuntimeAvailable() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const globalWindow = window;
+  return Boolean(globalWindow.__TAURI_INTERNALS__ || globalWindow.__TAURI__);
+}
+
+function formatFailureToastMessage(result) {
+  if (!result || typeof result !== 'object') {
+    return 'Request failed.';
+  }
+
+  const rawMessage = String(result.message || '').trim();
+  const rawError = stringifyError(result.error || 'Request failed').trim();
+  const messageLower = rawMessage.toLowerCase();
+  const errorLower = rawError.toLowerCase();
+  const healthState = String(result.healthState || '')
+    .trim()
+    .toLowerCase();
+
+  if (
+    messageLower.includes('remote agent queue/poll failed') ||
+    errorLower.includes('remote job timeout') ||
+    errorLower.includes('remote job read failed')
+  ) {
+    return 'Could not contact the remote agent right now. Check agent/cloud connection, then try Test again.';
+  }
+
+  if (result.screenOnline === false || healthState === 'offline') {
+    return (
+      rawMessage ||
+      'Screen appears offline. Check power/network, then run Test again.'
+    );
+  }
+
+  if (/agent\s+.+\s+is\s+not\s+online/.test(errorLower)) {
+    return (
+      rawMessage || 'Agent is offline, so the screen cannot be checked now.'
+    );
+  }
+
+  if (
+    /timeout|failed to fetch|networkerror|connection refused|econnrefused|enotfound/.test(
+      errorLower,
+    )
+  ) {
+    return (
+      rawMessage || 'Could not reach the screen right now. Please try again.'
+    );
+  }
+
+  return rawMessage || rawError;
 }
 
 function detectNak(error) {
@@ -480,7 +585,12 @@ function getAgentCachedStatus(agentId) {
 function getSavedDeviceRuntime(ip) {
   const key = String(ip ?? '').trim();
   if (!key) {
-    return { status: 'unknown', lastChecked: '-' };
+    return {
+      status: 'unknown',
+      lastChecked: '-',
+      lastOnlineAt: '-',
+      lastOfflineAt: '-',
+    };
   }
 
   const existing = savedDeviceRuntimeByIp.get(key);
@@ -488,10 +598,17 @@ function getSavedDeviceRuntime(ip) {
     return {
       status: normalizeListStatus(existing.status),
       lastChecked: String(existing.lastChecked ?? '-'),
+      lastOnlineAt: String(existing.lastOnlineAt ?? '-'),
+      lastOfflineAt: String(existing.lastOfflineAt ?? '-'),
     };
   }
 
-  return { status: 'unknown', lastChecked: '-' };
+  return {
+    status: 'unknown',
+    lastChecked: '-',
+    lastOnlineAt: '-',
+    lastOfflineAt: '-',
+  };
 }
 
 function updateDeleteSelectedButtonLabel() {
@@ -500,6 +617,59 @@ function updateDeleteSelectedButtonLabel() {
   if (button) {
     button.textContent = `Delete Selected (${count})`;
   }
+  updateSavedSelectAllCheckbox();
+}
+
+function getVisibleSavedDeviceIps() {
+  return getFilteredSavedDevices()
+    .map((device) => getSavedDeviceIp(device))
+    .filter(Boolean);
+}
+
+function updateSavedSelectAllCheckbox() {
+  const selectAll = $('savedSelectAll');
+  if (!selectAll) {
+    return;
+  }
+
+  const visibleIps = getVisibleSavedDeviceIps();
+  const visibleCount = visibleIps.length;
+  const selectedVisibleCount = visibleIps.filter((ip) =>
+    checkedSavedDeviceIps.has(ip),
+  ).length;
+
+  selectAll.disabled = visibleCount === 0;
+  selectAll.checked = visibleCount > 0 && selectedVisibleCount === visibleCount;
+  selectAll.indeterminate =
+    selectedVisibleCount > 0 && selectedVisibleCount < visibleCount;
+}
+
+function toggleSelectAllVisibleSavedDevices(shouldSelect) {
+  const visibleIps = getVisibleSavedDeviceIps();
+  if (!visibleIps.length) {
+    return { ok: false, error: 'No visible devices to select' };
+  }
+
+  if (shouldSelect) {
+    for (const ip of visibleIps) {
+      checkedSavedDeviceIps.add(ip);
+    }
+  } else {
+    for (const ip of visibleIps) {
+      checkedSavedDeviceIps.delete(ip);
+    }
+  }
+
+  persistDeviceSelectionState();
+  renderSavedDeviceList(selectedSavedDeviceIp);
+
+  return {
+    ok: true,
+    message: shouldSelect
+      ? `selected ${visibleIps.length} visible devices`
+      : `cleared ${visibleIps.length} visible devices`,
+    count: visibleIps.length,
+  };
 }
 
 function getTrackedAgentIdsFromSavedDevices() {
@@ -731,6 +901,13 @@ function getSavedSortLabel(fieldName) {
   return savedSortDirection === 'asc' ? '↑' : '↓';
 }
 
+function getMonitorSortLabel(fieldName) {
+  if (monitorSortBy !== fieldName) {
+    return '↕';
+  }
+  return monitorSortDirection === 'asc' ? '↑' : '↓';
+}
+
 function updateSavedSortButtonLabels() {
   const nameBtn = $('btnSortSavedName');
   const ipBtn = $('btnSortSavedIp');
@@ -755,6 +932,18 @@ function updateSavedSortButtonLabels() {
   }
 }
 
+function updateMonitorSortButtonLabels() {
+  const nameBtn = $('btnSortMonitorName');
+  const agentBtn = $('btnSortMonitorAgent');
+
+  if (nameBtn) {
+    nameBtn.textContent = `Name ${getMonitorSortLabel('name')}`;
+  }
+  if (agentBtn) {
+    agentBtn.textContent = `Agent ${getMonitorSortLabel('agent')}`;
+  }
+}
+
 function toggleSavedSort(fieldName) {
   if (savedSortBy === fieldName) {
     savedSortDirection = savedSortDirection === 'asc' ? 'desc' : 'asc';
@@ -765,6 +954,19 @@ function toggleSavedSort(fieldName) {
 
   updateSavedSortButtonLabels();
   renderSavedDeviceList(selectedSavedDeviceIp);
+  renderTimestampMonitorTable();
+}
+
+function toggleMonitorSort(fieldName) {
+  if (monitorSortBy === fieldName) {
+    monitorSortDirection = monitorSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    monitorSortBy = fieldName;
+    monitorSortDirection = 'asc';
+  }
+
+  updateMonitorSortButtonLabels();
+  renderTimestampMonitorTable();
 }
 
 function compareIpText(leftIp, rightIp) {
@@ -792,40 +994,11 @@ function compareIpText(leftIp, rightIp) {
   return String(leftIp || '').localeCompare(String(rightIp || ''));
 }
 
-function getFilteredSavedDevices() {
-  const filters = getSavedDeviceFilterValues();
-  const filtered = savedDevices.filter((device) => {
-    const deviceIp = getSavedDeviceIp(device);
-    const runtime = getSavedDeviceRuntime(deviceIp);
-    const status = normalizeListStatus(runtime.status);
-    const name = getSavedDeviceName(device).toLowerCase();
-    const locationSite = String(device.site ?? '')
-      .trim()
-      .toLowerCase();
-    const locationCity = String(device.city ?? '')
-      .trim()
-      .toLowerCase();
-    const displayId = String(Number(device.id ?? 0));
-
-    const matchesStatus =
-      filters.status === 'all' ? true : status === filters.status;
-    const matchesSite =
-      filters.site === 'all' ? true : locationSite === filters.site;
-    const matchesCity =
-      filters.city === 'all' ? true : locationCity === filters.city;
-    const matchesSearch =
-      !filters.search ||
-      name.includes(filters.search) ||
-      deviceIp.toLowerCase().includes(filters.search) ||
-      displayId.includes(filters.search) ||
-      locationSite.includes(filters.search) ||
-      locationCity.includes(filters.search);
-
-    return matchesStatus && matchesSite && matchesCity && matchesSearch;
-  });
-
+function sortSavedDevicesByCurrentOrder(devices) {
+  const list = Array.isArray(devices) ? devices.slice() : [];
   const directionFactor = savedSortDirection === 'asc' ? 1 : -1;
-  filtered.sort((left, right) => {
+
+  list.sort((left, right) => {
     const leftIp = getSavedDeviceIp(left);
     const rightIp = getSavedDeviceIp(right);
     const leftRuntime = getSavedDeviceRuntime(leftIp);
@@ -872,7 +1045,73 @@ function getFilteredSavedDevices() {
     return leftName.localeCompare(rightName) * directionFactor;
   });
 
-  return filtered;
+  return list;
+}
+
+function sortTimestampMonitorDevices(devices) {
+  const list = Array.isArray(devices) ? devices.slice() : [];
+  const directionFactor = monitorSortDirection === 'asc' ? 1 : -1;
+
+  list.sort((left, right) => {
+    if (monitorSortBy === 'agent') {
+      const leftAgent = String(getDeviceAgentId(left) || 'local')
+        .trim()
+        .toLowerCase();
+      const rightAgent = String(getDeviceAgentId(right) || 'local')
+        .trim()
+        .toLowerCase();
+      const byAgent = leftAgent.localeCompare(rightAgent);
+      if (byAgent !== 0) {
+        return byAgent * directionFactor;
+      }
+    }
+
+    const leftName = getSavedDeviceName(left).toLowerCase();
+    const rightName = getSavedDeviceName(right).toLowerCase();
+    const byName = leftName.localeCompare(rightName);
+    if (byName !== 0) {
+      return byName * directionFactor;
+    }
+
+    return compareIpText(getSavedDeviceIp(left), getSavedDeviceIp(right));
+  });
+
+  return list;
+}
+
+function getFilteredSavedDevices() {
+  const filters = getSavedDeviceFilterValues();
+  const filtered = savedDevices.filter((device) => {
+    const deviceIp = getSavedDeviceIp(device);
+    const runtime = getSavedDeviceRuntime(deviceIp);
+    const status = normalizeListStatus(runtime.status);
+    const name = getSavedDeviceName(device).toLowerCase();
+    const locationSite = String(device.site ?? '')
+      .trim()
+      .toLowerCase();
+    const locationCity = String(device.city ?? '')
+      .trim()
+      .toLowerCase();
+    const displayId = String(Number(device.id ?? 0));
+
+    const matchesStatus =
+      filters.status === 'all' ? true : status === filters.status;
+    const matchesSite =
+      filters.site === 'all' ? true : locationSite === filters.site;
+    const matchesCity =
+      filters.city === 'all' ? true : locationCity === filters.city;
+    const matchesSearch =
+      !filters.search ||
+      name.includes(filters.search) ||
+      deviceIp.toLowerCase().includes(filters.search) ||
+      displayId.includes(filters.search) ||
+      locationSite.includes(filters.search) ||
+      locationCity.includes(filters.search);
+
+    return matchesStatus && matchesSite && matchesCity && matchesSearch;
+  });
+
+  return sortSavedDevicesByCurrentOrder(filtered);
 }
 
 function updateFilterSelectOptions(selectId, values, allLabel) {
@@ -1022,6 +1261,27 @@ function initSavedDeviceToolbar() {
   $('savedSiteFilter')?.addEventListener('change', rerender);
   $('savedCityFilter')?.addEventListener('change', rerender);
   $('savedStatusFilter')?.addEventListener('change', rerender);
+  $('btnSortMonitorName')?.addEventListener('click', () =>
+    toggleMonitorSort('name'),
+  );
+  $('btnSortMonitorAgent')?.addEventListener('click', () =>
+    toggleMonitorSort('agent'),
+  );
+  $('savedSelectAll')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const result = toggleSelectAllVisibleSavedDevices(target.checked);
+    if (!result.ok) {
+      renderOutput(result);
+      showToast(
+        `Select All: ${stringifyError(result.error || 'failed')}`,
+        'error',
+      );
+    }
+  });
   $('btnSortSavedIp')?.addEventListener('click', () => toggleSavedSort('ip'));
   $('btnSortSavedLocation')?.addEventListener('click', () =>
     toggleSavedSort('location'),
@@ -1052,6 +1312,7 @@ function initSavedDeviceToolbar() {
 
   updateDeleteSelectedButtonLabel();
   updateSavedSortButtonLabels();
+  updateMonitorSortButtonLabels();
   updateAgentsSortButtonLabel();
   updateAgentsLastUpdatedLabel();
 }
@@ -1063,10 +1324,131 @@ function setSavedDeviceRuntime(ip, nextRuntime) {
   }
 
   const current = getSavedDeviceRuntime(key);
+  const nextStatus = normalizeListStatus(nextRuntime.status ?? current.status);
+  const hasStatusUpdate = Object.prototype.hasOwnProperty.call(
+    nextRuntime,
+    'status',
+  );
+
+  let lastOnlineAt = String(nextRuntime.lastOnlineAt ?? current.lastOnlineAt);
+  let lastOfflineAt = String(
+    nextRuntime.lastOfflineAt ?? current.lastOfflineAt,
+  );
+
+  if (hasStatusUpdate && nextStatus === 'online') {
+    lastOnlineAt = formatUiTimestamp();
+  }
+  if (hasStatusUpdate && nextStatus === 'offline') {
+    lastOfflineAt = formatUiTimestamp();
+  }
+
   savedDeviceRuntimeByIp.set(key, {
-    status: normalizeListStatus(nextRuntime.status ?? current.status),
+    status: nextStatus,
     lastChecked: String(nextRuntime.lastChecked ?? current.lastChecked),
+    lastOnlineAt,
+    lastOfflineAt,
   });
+
+  persistSavedDeviceRuntimeState();
+}
+
+function updateTimestampMonitorLastUpdatedLabel(value = '-') {
+  const label = $('timestampMonitorLastUpdatedAt');
+  if (!label) {
+    return;
+  }
+  label.textContent = String(value || '-');
+}
+
+function renderTimestampMonitorTable() {
+  const container = $('timestampMonitorList');
+  if (!container) {
+    return;
+  }
+
+  updateMonitorSortButtonLabels();
+
+  container.innerHTML = '';
+
+  if (!savedDevices.length) {
+    const emptyRow = document.createElement('tr');
+    const emptyCell = document.createElement('td');
+    emptyCell.colSpan = 7;
+    emptyCell.className = 'saved-device-empty';
+    emptyCell.textContent = 'No saved devices yet.';
+    emptyRow.appendChild(emptyCell);
+    container.appendChild(emptyRow);
+    updateTimestampMonitorLastUpdatedLabel('-');
+    return;
+  }
+
+  const devices = sortTimestampMonitorDevices(savedDevices);
+
+  for (const device of devices) {
+    const row = document.createElement('tr');
+    row.className = 'saved-device-row';
+
+    const deviceIp = getSavedDeviceIp(device);
+    const runtime = getSavedDeviceRuntime(deviceIp);
+    const agentId = getDeviceAgentId(device);
+
+    row.appendChild(createSavedDeviceCell(getSavedDeviceName(device)));
+    row.appendChild(createSavedDeviceCell(deviceIp || '-'));
+    row.appendChild(createSavedDeviceCell(agentId || 'local'));
+    row.appendChild(createSavedDeviceStatusCell(runtime.status));
+    row.appendChild(createSavedDeviceCell(runtime.lastOnlineAt || '-'));
+    row.appendChild(createSavedDeviceCell(runtime.lastOfflineAt || '-'));
+    row.appendChild(createSavedDeviceCell(runtime.lastChecked || '-'));
+
+    row.addEventListener('click', (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('button, input, select, textarea, a, label')
+      ) {
+        return;
+      }
+
+      const result = applySelectedDevice(deviceIp);
+      renderOutput(result);
+      if (result.ok) {
+        switchWorkflowPage('controls');
+      } else {
+        showToast(`Open: ${stringifyError(result.error || 'failed')}`, 'error');
+      }
+    });
+
+    container.appendChild(row);
+  }
+
+  updateTimestampMonitorLastUpdatedLabel(formatUiTimestamp());
+}
+
+async function refreshTimestampMonitorOnce({ silent = true } = {}) {
+  const refreshed = await refreshTvStatusesHeartbeat({ silent });
+  renderTimestampMonitorTable();
+  return {
+    ok: true,
+    refreshed,
+    message: refreshed
+      ? `monitor refreshed ${savedDevices.length} devices`
+      : 'monitor list refreshed',
+  };
+}
+
+function stopTimestampMonitorAutoRefresh() {
+  if (timestampMonitorTimerId) {
+    window.clearInterval(timestampMonitorTimerId);
+    timestampMonitorTimerId = null;
+  }
+}
+
+function startTimestampMonitorAutoRefresh() {
+  stopTimestampMonitorAutoRefresh();
+  void refreshTimestampMonitorOnce({ silent: true });
+  timestampMonitorTimerId = window.setInterval(() => {
+    void refreshTimestampMonitorOnce({ silent: true });
+  }, TIMESTAMP_MONITOR_REFRESH_INTERVAL_MS);
 }
 
 function deriveStatusFromTestResult(result) {
@@ -1279,10 +1661,13 @@ async function runSingleTvHeartbeat(device) {
         status: deriveTvHeartbeatStatus(normalized),
       };
     } catch (error) {
+      const errorText = stringifyError(error);
       return {
         ok: false,
-        error: stringifyError(error),
-        status: 'unknown',
+        error: errorText,
+        status: isBackendUnavailableErrorText(errorText)
+          ? 'unknown'
+          : 'offline',
         backend: `remote:${agentId}`,
         agent_id: agentId,
         backend_url: WEB_BACKEND_URL,
@@ -1549,10 +1934,7 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
       if (testResult.ok) {
         showToast('Test: device reachable', 'success');
       } else {
-        showToast(
-          `Test: ${stringifyError(testResult.error || testResult.message || 'failed')}`,
-          'error',
-        );
+        showToast(`Test: ${formatFailureToastMessage(testResult)}`, 'error');
       }
     });
 
@@ -1572,6 +1954,7 @@ function renderSavedDeviceList(selectedIp = selectedSavedDeviceIp) {
       renderOutput(result);
       if (result.ok) {
         savedDeviceRuntimeByIp.delete(deviceIp);
+        persistSavedDeviceRuntimeState();
         showToast(`Delete: ${result.message || 'success'}`, 'success');
       } else {
         showToast(
@@ -1625,6 +2008,15 @@ function renderSavedDevices(list, selectedIp = '') {
   refreshSavedDeviceFilterOptions();
   const desiredIp = String(selectedIp || '').trim();
   const validIps = new Set(savedDevices.map((item) => getSavedDeviceIp(item)));
+  const staleRuntimeIps = Array.from(savedDeviceRuntimeByIp.keys()).filter(
+    (ip) => !validIps.has(ip),
+  );
+  if (staleRuntimeIps.length) {
+    for (const ip of staleRuntimeIps) {
+      savedDeviceRuntimeByIp.delete(ip);
+    }
+    persistSavedDeviceRuntimeState();
+  }
   checkedSavedDeviceIps = new Set(
     Array.from(checkedSavedDeviceIps).filter((ip) => validIps.has(ip)),
   );
@@ -1640,6 +2032,7 @@ function renderSavedDevices(list, selectedIp = '') {
   persistDeviceSelectionState();
   renderSavedDeviceList(selectedSavedDeviceIp);
   renderExploreAgents();
+  renderTimestampMonitorTable();
 }
 
 function csvEscape(value) {
@@ -2020,9 +2413,34 @@ function buildHumanQuickMessage(payload) {
   const action = String(payload?.action || '').trim();
   const data = payload?.data;
 
-  if (action === 'status' && data?.status && typeof data.status === 'object') {
-    const status = data.status;
-    return `Status - Power: ${status.power ?? 'N/A'}, Volume: ${status.volume ?? 'N/A'}, Mute: ${status.mute ?? 'N/A'}, Input: ${status.input_source ?? 'N/A'}, Aspect: ${status.picture_aspect ?? 'N/A'}`;
+  if (action === 'status') {
+    const statusObject =
+      data?.status && typeof data.status === 'object'
+        ? data.status
+        : data && typeof data === 'object'
+          ? data
+          : null;
+
+    if (statusObject) {
+      const hasDetailedFields =
+        'power' in statusObject ||
+        'volume' in statusObject ||
+        'mute' in statusObject ||
+        'input_source' in statusObject ||
+        'picture_aspect' in statusObject;
+
+      if (hasDetailedFields) {
+        return `Status - Power: ${statusObject.power ?? 'N/A'}, Volume: ${statusObject.volume ?? 'N/A'}, Mute: ${statusObject.mute ?? 'N/A'}, Input: ${statusObject.input_source ?? 'N/A'}, Aspect: ${statusObject.picture_aspect ?? 'N/A'}`;
+      }
+
+      if (typeof statusObject.reachable === 'boolean') {
+        return statusObject.reachable
+          ? 'Status check successful (device reachable)'
+          : 'Status check failed (device unreachable)';
+      }
+    }
+
+    return 'Status read successful';
   }
 
   if (action === 'power') {
@@ -2100,9 +2518,12 @@ function renderOutput(payload) {
                   : '[ERROR]'
                 : '';
       const humanMessage = payload.ok ? buildHumanQuickMessage(payload) : null;
+      const humanFailureMessage =
+        payload.ok === false ? formatFailureToastMessage(payload) : null;
       const actionName = payload.action ? `${payload.action}: ` : '';
       const message =
         humanMessage ||
+        humanFailureMessage ||
         payload.message ||
         payload.error ||
         payload.warning ||
@@ -2118,6 +2539,46 @@ function renderOutput(payload) {
     }
     setQuickOutputLine(summary, payload?.healthState || null);
   }
+}
+
+function backfillActionEchoData(result, action, payload) {
+  if (!result || typeof result !== 'object') {
+    return result;
+  }
+
+  const normalizedAction = String(action || '')
+    .trim()
+    .toLowerCase();
+
+  const next = { ...result };
+  const nextData =
+    next.data && typeof next.data === 'object' ? { ...next.data } : {};
+
+  if (normalizedAction === 'set_volume' && nextData.value == null) {
+    nextData.value = Number(payload?.value ?? 0);
+  }
+
+  if (normalizedAction === 'set_brightness' && nextData.value == null) {
+    nextData.value = Number(payload?.value ?? 0);
+  }
+
+  if (normalizedAction === 'set_mute' && !nextData.state) {
+    nextData.state = String(payload?.state ?? '');
+  }
+
+  if (normalizedAction === 'set_input' && !nextData.source) {
+    nextData.source = String(payload?.source ?? '');
+  }
+
+  if (normalizedAction === 'power' && !nextData.state) {
+    nextData.state = String(payload?.state ?? '');
+  }
+
+  if (Object.keys(nextData).length > 0) {
+    next.data = nextData;
+  }
+
+  return next;
 }
 
 async function fetchJsonWithTimeout(url, timeoutMs = 3500, extraHeaders = {}) {
@@ -2893,18 +3354,20 @@ async function loadCliCatalog() {
     return true;
   };
 
-  try {
-    const response = await invoke('device_action', {
-      action: 'cli_catalog',
-      payload: {},
-    });
+  if (isTauriRuntimeAvailable() && typeof invoke === 'function') {
+    try {
+      const response = await invoke('device_action', {
+        action: 'cli_catalog',
+        payload: {},
+      });
 
-    if (applyCommands(response?.data?.commands)) {
-      logLine('CLI schema source: Tauri Python bridge');
-      return;
+      if (applyCommands(response?.data?.commands)) {
+        logLine('CLI schema source: Tauri Python bridge');
+        return;
+      }
+    } catch (_error) {
+      logLine('CLI schema source: fallback file (Tauri bridge unavailable)');
     }
-  } catch (error) {
-    logLine(`Tauri CLI catalog unavailable: ${String(error)}`);
   }
 
   try {
@@ -2924,7 +3387,7 @@ async function loadCliCatalog() {
 }
 
 function switchWorkflowPage(pageName) {
-  const validPages = new Set(['connection', 'controls', 'agents']);
+  const validPages = new Set(['connection', 'controls', 'agents', 'monitor']);
   const normalizedPage = validPages.has(pageName) ? pageName : 'connection';
   const pages = document.querySelectorAll('.workflow-page');
   const tabs = document.querySelectorAll('.page-tab');
@@ -2974,7 +3437,7 @@ function bindButtonAction(buttonId, action) {
             );
           } else {
             showToast(
-              `${buttonLabel}: ${stringifyError(result.error || 'failed')}`,
+              `${buttonLabel}: ${formatFailureToastMessage(result)}`,
               'error',
             );
           }
@@ -3047,24 +3510,29 @@ async function callAction(action, data = {}) {
         `remote:${agentId}`,
         remoteResult,
       );
-      normalized.agent_id = agentId;
-      normalized.job_id = queued.job_id;
-      renderOutput(normalized);
+      const normalizedWithEcho = backfillActionEchoData(
+        normalized,
+        action,
+        payload,
+      );
+      normalizedWithEcho.agent_id = agentId;
+      normalizedWithEcho.job_id = queued.job_id;
+      renderOutput(normalizedWithEcho);
 
-      if (normalized.ok) {
+      if (normalizedWithEcho.ok) {
         logLine(
-          `Action '${action}' completed (remote agent ${agentId})${normalized.ack ? ' [ACK]' : ''}`,
+          `Action '${action}' completed (remote agent ${agentId})${normalizedWithEcho.ack ? ' [ACK]' : ''}`,
         );
-      } else if (normalized.nak) {
+      } else if (normalizedWithEcho.nak) {
         logLine(
-          `Action '${action}' rejected (remote agent ${agentId}) [NAK]: ${String(normalized.error ?? 'unknown error')}`,
+          `Action '${action}' rejected (remote agent ${agentId}) [NAK]: ${String(normalizedWithEcho.error ?? 'unknown error')}`,
         );
       } else {
         logLine(
-          `Action '${action}' failed (remote agent ${agentId}): ${String(normalized.error ?? 'unknown error')}`,
+          `Action '${action}' failed (remote agent ${agentId}): ${String(normalizedWithEcho.error ?? 'unknown error')}`,
         );
       }
-      return normalized;
+      return normalizedWithEcho;
     } catch (error) {
       const errorText = stringifyError(error);
       logLine(
@@ -3090,21 +3558,26 @@ async function callAction(action, data = {}) {
   try {
     const response = await invoke('device_action', { action, payload });
     const normalized = normalizeActionResult(action, 'tauri', response);
-    renderOutput(normalized);
-    if (normalized.ok) {
+    const normalizedWithEcho = backfillActionEchoData(
+      normalized,
+      action,
+      payload,
+    );
+    renderOutput(normalizedWithEcho);
+    if (normalizedWithEcho.ok) {
       logLine(
-        `Action '${action}' completed (tauri)${normalized.ack ? ' [ACK]' : ''}`,
+        `Action '${action}' completed (tauri)${normalizedWithEcho.ack ? ' [ACK]' : ''}`,
       );
-    } else if (normalized.nak) {
+    } else if (normalizedWithEcho.nak) {
       logLine(
-        `Action '${action}' rejected (tauri) [NAK]: ${String(normalized.error ?? 'unknown error')}`,
+        `Action '${action}' rejected (tauri) [NAK]: ${String(normalizedWithEcho.error ?? 'unknown error')}`,
       );
     } else {
       logLine(
-        `Action '${action}' failed (tauri): ${String(normalized.error ?? 'unknown error')}`,
+        `Action '${action}' failed (tauri): ${String(normalizedWithEcho.error ?? 'unknown error')}`,
       );
     }
-    return normalized;
+    return normalizedWithEcho;
   } catch (tauriError) {
     tauriFallbackErrorText = String(tauriError);
     logLine(
@@ -3145,21 +3618,26 @@ async function callAction(action, data = {}) {
       'web-backend',
       dataResponse,
     );
-    renderOutput(normalized);
-    if (normalized.ok) {
+    const normalizedWithEcho = backfillActionEchoData(
+      normalized,
+      action,
+      payload,
+    );
+    renderOutput(normalizedWithEcho);
+    if (normalizedWithEcho.ok) {
       logLine(
-        `Action '${action}' completed (web backend)${normalized.ack ? ' [ACK]' : ''}`,
+        `Action '${action}' completed (web backend)${normalizedWithEcho.ack ? ' [ACK]' : ''}`,
       );
-    } else if (normalized.nak) {
+    } else if (normalizedWithEcho.nak) {
       logLine(
-        `Action '${action}' rejected (web backend) [NAK]: ${String(normalized.error ?? 'unknown error')}`,
+        `Action '${action}' rejected (web backend) [NAK]: ${String(normalizedWithEcho.error ?? 'unknown error')}`,
       );
     } else {
       logLine(
-        `Action '${action}' failed (web backend): ${String(normalized.error ?? 'unknown error')}`,
+        `Action '${action}' failed (web backend): ${String(normalizedWithEcho.error ?? 'unknown error')}`,
       );
     }
-    return normalized;
+    return normalizedWithEcho;
   } catch (error) {
     const errorText = String(error);
     const backendUnavailable =
@@ -3726,6 +4204,9 @@ bindButtonAction('btnCliGet', runCliGet);
 bindButtonAction('btnCliSet', runCliSet);
 bindButtonAction('btnClearLog', () => clearLog('commandLog'));
 bindButtonAction('btnSaveLog', () => saveLog('commandLog', 'command_log'));
+bindButtonAction('btnRefreshTimestampMonitor', () =>
+  refreshTimestampMonitorOnce({ silent: false }),
+);
 $('cliCommand').addEventListener('change', (event) =>
   renderCliArgRows(event.target.value),
 );
@@ -3738,8 +4219,10 @@ async function initializeDashboard() {
   await loadCliCatalog();
   await refreshRemoteAgentStatuses({ silent: true });
   await refreshAllSavedDeviceStatuses();
+  renderTimestampMonitorTable();
   startAgentStatusAutoRefresh();
   startTvStatusAutoRefresh();
+  startTimestampMonitorAutoRefresh();
   logLine('Dashboard initialized');
 }
 
@@ -3748,4 +4231,5 @@ void initializeDashboard();
 window.addEventListener('beforeunload', () => {
   stopAgentStatusAutoRefresh();
   stopTvStatusAutoRefresh();
+  stopTimestampMonitorAutoRefresh();
 });
