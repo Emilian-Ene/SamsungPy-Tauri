@@ -3668,7 +3668,6 @@ bindButtonAction('btnStatus', () => callAction('status'));
 bindButtonAction('btnTestConnection', runConnectionTestTracked);
 bindButtonAction('btnPowerOn', () => callAction('power', { state: 'ON' }));
 bindButtonAction('btnPowerOff', () => callAction('power', { state: 'OFF' }));
-bindButtonAction('btnReboot', () => callAction('power', { state: 'REBOOT' }));
 bindButtonAction('btnSetVolume', runSetVolume);
 bindButtonAction('btnSetBrightness', runSetBrightness);
 bindButtonAction('btnSetMute', () =>
