@@ -738,8 +738,7 @@ button.saved-sort-btn:active:not(:disabled) {
   font-size: 13px;
 }
 
-#output,
-#outputWs {
+#output {
   background: #091322;
   border: 1px solid #1d2c47;
   border-radius: 10px;
@@ -748,8 +747,7 @@ button.saved-sort-btn:active:not(:disabled) {
   overflow: auto;
 }
 
-#commandLog,
-#commandLogWs {
+#commandLog {
   background: #091322;
   border: 1px solid #1d2c47;
   border-radius: 10px;

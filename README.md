@@ -21,7 +21,7 @@ Each saved device keeps:
 - `tv_ip`
 - `port`
 - `id`
-- `protocol` (`AUTO`, `SIGNAGE_MDC`, `SMART_TV_WS`)
+- `protocol` (`AUTO`, `SIGNAGE_MDC`)
 - `agent_id` (empty = local/direct mode)
 - optional metadata (`site`, `city`, `zone`, `area`, `description`)
 
@@ -60,8 +60,6 @@ Each saved device keeps:
 - Saved devices manager (load/apply/save/delete)
 - Core controls (status, power, volume, brightness, mute, input)
 - MDC CLI commands (manual GET/SET)
-- Smart TV key sender (repeat)
-- HDMI macros (`HDMI1`..`HDMI4`)
 - Command Log
 - Explore Agents page with agent-to-TV drill-down
 

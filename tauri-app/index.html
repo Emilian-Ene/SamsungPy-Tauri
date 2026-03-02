@@ -33,9 +33,6 @@
           >
             Controls
           </button>
-          <button class="page-tab" data-page-target="ws" aria-selected="false">
-            Smart TV WS
-          </button>
           <button
             class="page-tab"
             data-page-target="agents"
@@ -102,7 +99,6 @@
                 <select id="protocol">
                   <option value="AUTO">AUTO</option>
                   <option value="SIGNAGE_MDC">SIGNAGE_MDC</option>
-                  <option value="SMART_TV_WS">SMART_TV_WS</option>
                 </select>
               </label>
               <label
@@ -333,53 +329,6 @@
               </div>
             </div>
             <pre id="commandLog"></pre>
-          </section>
-        </div>
-
-        <div id="pageWs" class="workflow-page" data-page="ws">
-          <section class="card">
-            <h2>WS Comands</h2>
-
-            <div class="actions">
-              <label
-                >Smart TV Key
-                <select id="consumerKey"></select>
-              </label>
-              <label
-                >Repeat
-                <input
-                  id="consumerRepeat"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value="1"
-                />
-              </label>
-              <button id="btnConsumerKey">Send Key</button>
-            </div>
-
-            <div class="actions">
-              <button id="btnHdmi1">HDMI1 Macro</button>
-              <button id="btnHdmi2">HDMI2 Macro</button>
-              <button id="btnHdmi3">HDMI3 Macro</button>
-              <button id="btnHdmi4">HDMI4 Macro</button>
-            </div>
-          </section>
-
-          <section class="card">
-            <h2>Output</h2>
-            <pre id="outputWs"></pre>
-          </section>
-
-          <section class="card">
-            <div class="log-header-row">
-              <h2>Command Log</h2>
-              <div class="log-header-actions">
-                <button id="btnClearLogWs">Clear Log</button>
-                <button id="btnSaveLogWs">Save Log</button>
-              </div>
-            </div>
-            <pre id="commandLogWs"></pre>
           </section>
         </div>
 

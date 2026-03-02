@@ -113,7 +113,7 @@ fn launcher_command(launcher: PythonLauncher) -> Command {
 }
 
 fn launcher_has_required_modules(launcher: PythonLauncher) -> Result<bool, String> {
-    let check_script = "import importlib.util;mods=('samsung_mdc','samsungtvws');missing=[m for m in mods if importlib.util.find_spec(m) is None];print('OK' if not missing else 'MISSING:'+','.join(missing))";
+    let check_script = "import importlib.util;mods=('samsung_mdc',);missing=[m for m in mods if importlib.util.find_spec(m) is None];print('OK' if not missing else 'MISSING:'+','.join(missing))";
 
     let output = launcher_command(launcher)
         .arg("-c")
@@ -212,7 +212,6 @@ fn saved_devices_path() -> PathBuf {
 fn normalize_protocol(value: &str) -> String {
     match value.trim().to_uppercase().as_str() {
         "SIGNAGE_MDC" => "SIGNAGE_MDC".to_string(),
-        "SMART_TV_WS" => "SMART_TV_WS".to_string(),
         _ => "AUTO".to_string(),
     }
 }
@@ -413,7 +412,7 @@ fn run_bridge(action: &str, payload: &Value) -> Result<Value, String> {
         match launcher_has_required_modules(launcher) {
             Ok(true) => preferred_launchers.push(launcher),
             Ok(false) => launcher_diagnostics.push(format!(
-                "{} missing required modules (samsung_mdc and/or samsungtvws)",
+                "{} missing required module (samsung_mdc)",
                 launcher.label
             )),
             Err(err) => launcher_diagnostics.push(err),
@@ -517,11 +516,7 @@ fn auto_probe(ip: String) -> Result<Value, String> {
         return Err("IP is required".to_string());
     }
 
-    let probes = [
-        (1515_u16, "SIGNAGE_MDC"),
-        (8002_u16, "SMART_TV_WS"),
-        (8001_u16, "SMART_TV_WS"),
-    ];
+    let probes = [(1515_u16, "SIGNAGE_MDC")];
 
     for (port, protocol) in probes {
         if probe_port(&ip_clean, port, 1200) {
@@ -537,7 +532,7 @@ fn auto_probe(ip: String) -> Result<Value, String> {
     Ok(serde_json::json!({
         "ok": false,
         "ip": ip_clean,
-        "error": "No supported control ports reachable (1515/8002/8001)",
+        "error": "No supported control ports reachable (1515)",
     }))
 }
 

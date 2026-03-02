@@ -1,6 +1,5 @@
 import asyncio
 import json
-import socket
 import sys
 from pathlib import Path
 
@@ -10,11 +9,6 @@ if not getattr(sys, "frozen", False):
         sys.path.insert(0, str(ROOT_DIR))
 
 from samsung_mdc import MDC
-
-try:
-    from samsungtvws import SamsungTVWS
-except Exception:
-    SamsungTVWS = None
 
 POWER_MAP = {0: "OFF", 1: "ON", 2: "REBOOT"}
 MUTE_MAP = {0: "OFF", 1: "ON", 255: "UNAVAILABLE"}
@@ -34,28 +28,6 @@ PICTURE_ASPECT_MAP = {
     0x0B: "VIDEO_4_3",
 }
 
-SMART_TV_KEYS = [
-    "KEY_HOME",
-    "KEY_POWER",
-    "KEY_MUTE",
-    "KEY_VOLUP",
-    "KEY_VOLDOWN",
-    "KEY_SOURCE",
-    "KEY_MENU",
-    "KEY_RETURN",
-    "KEY_UP",
-    "KEY_DOWN",
-    "KEY_LEFT",
-    "KEY_RIGHT",
-    "KEY_ENTER",
-]
-
-SMART_TV_HDMI_MACROS = {
-    "HDMI1": ["KEY_SOURCE", "KEY_ENTER"],
-    "HDMI2": ["KEY_SOURCE", "KEY_RIGHT", "KEY_ENTER"],
-    "HDMI3": ["KEY_SOURCE", "KEY_RIGHT", "KEY_RIGHT", "KEY_ENTER"],
-    "HDMI4": ["KEY_SOURCE", "KEY_RIGHT", "KEY_RIGHT", "KEY_RIGHT", "KEY_ENTER"],
-}
 TIMER_INDEXED_COMMANDS = {"timer_13", "timer_15"}
 DEFAULT_TIMEOUT_SECONDS = 20.0
 MIN_TIMEOUT_SECONDS = 3.0
@@ -192,9 +164,9 @@ def decode_status(raw_status):
 
 def resolve_protocol(protocol: str, port: int) -> str:
     normalized = str(protocol or "AUTO").strip().upper()
-    if normalized in ("SIGNAGE_MDC", "SMART_TV_WS"):
+    if normalized == "SIGNAGE_MDC":
         return normalized
-    return "SIGNAGE_MDC" if int(port) == 1515 else "SMART_TV_WS"
+    return "SIGNAGE_MDC"
 
 
 def resolve_action_timeout(action: str, payload: dict) -> float:
@@ -307,91 +279,21 @@ async def do_signage_action(action: str, payload: dict):
     raise ValueError(f"Unsupported signage action: {action}")
 
 
-def do_smart_tv_action(action: str, payload: dict):
-    if action == "status":
-        host = payload["ip"]
-        port = int(payload.get("port", 8001))
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(2.5)
-            ok = sock.connect_ex((host, port)) == 0
-        return {"reachable": ok, "port": port}
-
-    if SamsungTVWS is None:
-        raise RuntimeError("samsungtvws is not installed")
-
-    ip = payload["ip"]
-    tv = SamsungTVWS(host=ip, port=int(payload.get("port", 8001)), timeout=3)
-
-    if action == "power":
-        state = str(payload.get("state", "")).upper()
-        if state in ("OFF", "REBOOT"):
-            tv.send_key("KEY_POWER")
-            return {"sent": "KEY_POWER", "intent": state}
-        if state == "ON":
-            raise RuntimeError("Smart TV power ON over WS is not guaranteed when TV is fully off")
-
-    if action == "set_mute":
-        tv.send_key("KEY_MUTE")
-        return {"sent": "KEY_MUTE", "requested": payload.get("state")}
-
-    if action == "set_volume":
-        desired = int(payload["value"])
-        current = 50
-        key = "KEY_VOLUP" if desired >= current else "KEY_VOLDOWN"
-        for _ in range(abs(desired - current)):
-            tv.send_key(key)
-        return {"sent": key, "steps": abs(desired - current), "target": desired}
-
-    if action == "set_input":
-        tv.send_key("KEY_SOURCE")
-        return {"sent": "KEY_SOURCE", "target": payload.get("source")}
-
-    if action == "set_brightness":
-        raise RuntimeError("Brightness control is signage-only")
-
-    if action == "consumer_key":
-        key = str(payload.get("key", "")).strip().upper()
-        if key not in SMART_TV_KEYS:
-            raise ValueError(f"Unknown Smart TV key: {key}")
-        repeat = int(payload.get("repeat", 1))
-        if repeat < 1:
-            repeat = 1
-        if repeat > 20:
-            repeat = 20
-        for _ in range(repeat):
-            tv.send_key(key)
-        return {"sent": key, "repeat": repeat}
-
-    if action == "hdmi_macro":
-        hdmi = str(payload.get("hdmi", "")).strip().upper()
-        sequence = SMART_TV_HDMI_MACROS.get(hdmi)
-        if not sequence:
-            raise ValueError(f"Unknown HDMI macro: {hdmi}")
-        for key in sequence:
-            tv.send_key(key)
-        return {"macro": hdmi, "sequence": sequence}
-
-    raise ValueError(f"Unsupported Smart TV action: {action}")
-
-
 async def main_async(action: str, payload: dict):
     if action == "cli_catalog":
         return {"ok": True, "data": {"commands": build_cli_catalog()}}
 
     protocol = resolve_protocol(payload.get("protocol", "AUTO"), int(payload.get("port", 1515)))
-    if protocol == "SIGNAGE_MDC":
-        timeout_seconds = resolve_action_timeout(action, payload)
-        try:
-            data = await asyncio.wait_for(
-                do_signage_action(action, payload),
-                timeout=timeout_seconds,
-            )
-        except asyncio.TimeoutError as exc:
-            raise RuntimeError(
-                f"MDC action timeout after {timeout_seconds:.1f}s"
-            ) from exc
-    else:
-        data = do_smart_tv_action(action, payload)
+    timeout_seconds = resolve_action_timeout(action, payload)
+    try:
+        data = await asyncio.wait_for(
+            do_signage_action(action, payload),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError as exc:
+        raise RuntimeError(
+            f"MDC action timeout after {timeout_seconds:.1f}s"
+        ) from exc
     return {"ok": True, "protocol": protocol, "data": data}
 
 

@@ -47,8 +47,6 @@ def auto_probe(ip: str) -> dict:
 
     candidates = [
         (1515, "SIGNAGE_MDC"),
-        (8002, "SMART_TV_WS"),
-        (8001, "SMART_TV_WS"),
     ]
 
     for port, protocol in candidates:
@@ -58,7 +56,7 @@ def auto_probe(ip: str) -> dict:
     return {
         "ok": False,
         "ip": ip,
-        "error": "No known ports open (1515, 8002, 8001)",
+        "error": "No known ports open (1515)",
     }
 
 

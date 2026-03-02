@@ -69,21 +69,6 @@ const notyf = new Notyf({
     },
   ],
 });
-const SMART_TV_KEYS = [
-  'KEY_HOME',
-  'KEY_POWER',
-  'KEY_MUTE',
-  'KEY_VOLUP',
-  'KEY_VOLDOWN',
-  'KEY_SOURCE',
-  'KEY_MENU',
-  'KEY_RETURN',
-  'KEY_UP',
-  'KEY_DOWN',
-  'KEY_LEFT',
-  'KEY_RIGHT',
-  'KEY_ENTER',
-];
 const INPUT_SOURCE_GET_ONLY = new Set([
   'DVI_VIDEO',
   'HDMI1_PC',
@@ -108,8 +93,6 @@ const WRITE_ACTIONS = new Set([
   'set_mute',
   'set_input',
   'cli_set',
-  'consumer_key',
-  'hdmi_macro',
 ]);
 const TIMER_INDEXED_COMMANDS = new Set(['timer_13', 'timer_15']);
 
@@ -132,7 +115,7 @@ function nowTag() {
 
 function logLine(message) {
   const logText = `[${nowTag()}] ${message}\n`;
-  const targets = ['commandLog', 'commandLogWs'];
+  const targets = ['commandLog'];
   for (const targetId of targets) {
     const box = $(targetId);
     if (!box) {
@@ -414,9 +397,6 @@ function protocolLabelForList(protocol) {
     .toUpperCase();
   if (value === 'SIGNAGE_MDC') {
     return 'MDC';
-  }
-  if (value === 'SMART_TV_WS') {
-    return 'WS';
   }
   return 'AUTO';
 }
@@ -1261,13 +1241,19 @@ async function runSingleTvHeartbeat(device) {
     }
 
     try {
-      const queued = await enqueueRemoteJob(agentId, 'device_action', {
-        action: 'status',
-        payload: {
-          ...payload,
-          agent_id: agentId,
-        },
+      const remoteJob = buildRemoteJobFromAction('status', {
+        ...payload,
+        agent_id: agentId,
       });
+      if (!remoteJob.ok) {
+        throw new Error(remoteJob.error || 'Failed to map remote status job');
+      }
+
+      const queued = await enqueueRemoteJob(
+        agentId,
+        remoteJob.kind,
+        remoteJob.payload,
+      );
 
       const completed = await pollRemoteJob(queued.job_id, 25000);
       const remoteResult = normalizeRemoteActionResultPayload(
@@ -1885,10 +1871,7 @@ function normalizeSavedDeviceWeb(device) {
     ip: tvIp,
     port: Number.isFinite(port) ? port : 1515,
     id: Number.isFinite(id) ? id : 0,
-    protocol:
-      protocol === 'SIGNAGE_MDC' || protocol === 'SMART_TV_WS'
-        ? protocol
-        : 'AUTO',
+    protocol: protocol === 'SIGNAGE_MDC' ? protocol : 'AUTO',
     agent_id: sanitizeAgentIdValue(device.agent_id ?? device.agentId ?? ''),
     site: String(device.site ?? '').trim(),
     city: String(device.city ?? '').trim(),
@@ -2079,7 +2062,7 @@ function buildHumanQuickMessage(payload) {
 
 function renderOutput(payload) {
   const outputText = JSON.stringify(payload, null, 2);
-  const targets = ['output', 'outputWs'];
+  const targets = ['output'];
   for (const targetId of targets) {
     const box = $(targetId);
     if (!box) {
@@ -2243,6 +2226,128 @@ async function enqueueRemoteJob(agentId, kind, payload) {
     throw new Error(`Remote enqueue failed: ${detail}`);
   }
   return body;
+}
+
+function buildRemoteJobFromAction(action, payload) {
+  const normalizedAction = String(action || '')
+    .trim()
+    .toLowerCase();
+  const ip = String(payload?.tv_ip || payload?.ip || '').trim();
+
+  if (!ip) {
+    return { ok: false, error: 'Remote action requires device IP.' };
+  }
+
+  const basePayload = {
+    ip,
+    display_id: Number(payload?.display_id ?? 0),
+    port: Number(payload?.port ?? 1515),
+    protocol: String(payload?.protocol ?? 'AUTO'),
+  };
+
+  if (normalizedAction === 'status') {
+    return {
+      ok: true,
+      kind: 'test',
+      payload: basePayload,
+    };
+  }
+
+  if (normalizedAction === 'power') {
+    const state = String(payload?.state || '')
+      .trim()
+      .toUpperCase();
+    if (state === 'ON' || state === 'OFF') {
+      return {
+        ok: true,
+        kind: 'tv',
+        payload: {
+          ...basePayload,
+          command: state.toLowerCase(),
+        },
+      };
+    }
+    return {
+      ok: false,
+      error: `Remote power supports ON/OFF only (received ${state || 'empty'}).`,
+    };
+  }
+
+  if (normalizedAction === 'cli_get' || normalizedAction === 'cli_set') {
+    const command = String(payload?.command || '').trim();
+    if (!command) {
+      return { ok: false, error: 'Remote CLI action requires command.' };
+    }
+
+    const args = Array.isArray(payload?.args) ? payload.args : [];
+    return {
+      ok: true,
+      kind: 'mdc_execute',
+      payload: {
+        ...basePayload,
+        command,
+        operation: normalizedAction === 'cli_get' ? 'get' : 'set',
+        args,
+      },
+    };
+  }
+
+  if (normalizedAction === 'set_volume') {
+    return {
+      ok: true,
+      kind: 'mdc_execute',
+      payload: {
+        ...basePayload,
+        command: 'volume',
+        operation: 'set',
+        args: [Number(payload?.value ?? 0)],
+      },
+    };
+  }
+
+  if (normalizedAction === 'set_brightness') {
+    return {
+      ok: true,
+      kind: 'mdc_execute',
+      payload: {
+        ...basePayload,
+        command: 'brightness',
+        operation: 'set',
+        args: [Number(payload?.value ?? 0)],
+      },
+    };
+  }
+
+  if (normalizedAction === 'set_mute') {
+    return {
+      ok: true,
+      kind: 'mdc_execute',
+      payload: {
+        ...basePayload,
+        command: 'mute',
+        operation: 'set',
+        args: [String(payload?.state ?? '')],
+      },
+    };
+  }
+
+  if (normalizedAction === 'set_input') {
+    return {
+      ok: true,
+      kind: 'mdc_execute',
+      payload: {
+        ...basePayload,
+        command: 'input_source',
+        operation: 'set',
+        args: [String(payload?.source ?? '')],
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    error: `Action '${normalizedAction}' is not supported in remote-agent mode for this backend.`,
+  };
 }
 
 async function pollRemoteJob(jobId, timeoutMs) {
@@ -2612,9 +2717,7 @@ function effectiveProtocol() {
   if (protocol !== 'AUTO') {
     return protocol;
   }
-
-  const port = Number($('port').value);
-  return port === 1515 ? 'SIGNAGE_MDC' : 'SMART_TV_WS';
+  return 'SIGNAGE_MDC';
 }
 
 function getActionTimeoutMs(action) {
@@ -2808,19 +2911,8 @@ async function loadCliCatalog() {
   }
 }
 
-function initSmartTvKeys() {
-  const select = $('consumerKey');
-  select.innerHTML = '';
-  for (const key of SMART_TV_KEYS) {
-    const option = document.createElement('option');
-    option.value = key;
-    option.textContent = key;
-    select.appendChild(option);
-  }
-}
-
 function switchWorkflowPage(pageName) {
-  const validPages = new Set(['connection', 'controls', 'ws', 'agents']);
+  const validPages = new Set(['connection', 'controls', 'agents']);
   const normalizedPage = validPages.has(pageName) ? pageName : 'connection';
   const pages = document.querySelectorAll('.workflow-page');
   const tabs = document.querySelectorAll('.page-tab');
@@ -2918,14 +3010,20 @@ async function callAction(action, data = {}) {
 
   if (agentId) {
     try {
-      const queued = await enqueueRemoteJob(agentId, 'device_action', {
-        action,
-        payload: {
-          ...payload,
-          tv_ip: tvIp,
-          ip: tvIp,
-        },
+      const remoteJob = buildRemoteJobFromAction(action, {
+        ...payload,
+        tv_ip: tvIp,
+        ip: tvIp,
       });
+      if (!remoteJob.ok) {
+        throw new Error(remoteJob.error || 'Failed to map remote job');
+      }
+
+      const queued = await enqueueRemoteJob(
+        agentId,
+        remoteJob.kind,
+        remoteJob.payload,
+      );
 
       const completed = await pollRemoteJob(queued.job_id, timeoutMs + 15000);
       const remoteResult = normalizeRemoteActionResultPayload(
@@ -3566,40 +3664,6 @@ async function runSetInput() {
   return result;
 }
 
-async function sendConsumerKey() {
-  if (effectiveProtocol() !== 'SMART_TV_WS') {
-    const error =
-      'Consumer key CLI is Smart TV only. Set Protocol to SMART_TV_WS (or AUTO + port 8002/8001).';
-    logLine(error);
-    return { ok: false, error };
-  }
-
-  let repeat = Number($('consumerRepeat').value);
-  if (Number.isNaN(repeat) || repeat < 1) {
-    repeat = 1;
-  }
-  if (repeat > 20) {
-    repeat = 20;
-  }
-  $('consumerRepeat').value = String(repeat);
-
-  return await callAction('consumer_key', {
-    key: $('consumerKey').value,
-    repeat,
-  });
-}
-
-async function sendHdmiMacro(hdmi) {
-  if (effectiveProtocol() !== 'SMART_TV_WS') {
-    const error =
-      'HDMI macro is Smart TV only. Set Protocol to SMART_TV_WS (or AUTO + port 8002/8001).';
-    logLine(error);
-    return { ok: false, error };
-  }
-
-  return await callAction('hdmi_macro', { hdmi });
-}
-
 bindButtonAction('btnStatus', () => callAction('status'));
 bindButtonAction('btnTestConnection', runConnectionTestTracked);
 bindButtonAction('btnPowerOn', () => callAction('power', { state: 'ON' }));
@@ -3649,17 +3713,8 @@ $('deviceCsvInput')?.addEventListener('change', async (event) => {
 
 bindButtonAction('btnCliGet', runCliGet);
 bindButtonAction('btnCliSet', runCliSet);
-bindButtonAction('btnConsumerKey', sendConsumerKey);
-bindButtonAction('btnHdmi1', () => sendHdmiMacro('HDMI1'));
-bindButtonAction('btnHdmi2', () => sendHdmiMacro('HDMI2'));
-bindButtonAction('btnHdmi3', () => sendHdmiMacro('HDMI3'));
-bindButtonAction('btnHdmi4', () => sendHdmiMacro('HDMI4'));
 bindButtonAction('btnClearLog', () => clearLog('commandLog'));
 bindButtonAction('btnSaveLog', () => saveLog('commandLog', 'command_log'));
-bindButtonAction('btnClearLogWs', () => clearLog('commandLogWs'));
-bindButtonAction('btnSaveLogWs', () =>
-  saveLog('commandLogWs', 'command_log_ws'),
-);
 $('cliCommand').addEventListener('change', (event) =>
   renderCliArgRows(event.target.value),
 );
@@ -3668,7 +3723,6 @@ refreshSavedDevices().finally(() => {
   startAgentStatusAutoRefresh();
   startTvStatusAutoRefresh();
 });
-initSmartTvKeys();
 loadCliCatalog();
 initWorkflowNavigation();
 initSavedDeviceToolbar();
