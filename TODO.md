@@ -66,12 +66,23 @@
   - `last check` timestamp
 - Added `Refresh Now` action for manual monitor refresh.
 
+### Controls page UX polish - completed
+
+- Added hide/show eye toggle for **Output** console.
+- Added hide/show eye toggle for **Command Log**.
+- Hidden mode collapses content area so only the header row remains visible.
+- Updated toast notifications to use one consistent duration (`4000 ms`) across all toast types.
+
+### Saved device refresh concurrency - completed
+
+- Added controlled parallel TV status checks with `BULK_REFRESH_CONCURRENCY = 8`.
+- `Refresh all` and startup status sweep now use batched parallel workers.
+- Updated result summary counts after parallel sweep completion.
+
 ## Planned
 
 - Optional: improve Windows Git Credential Manager stability (push succeeds, but CLI shows .NET exceptions on this machine).
-- Add controlled parallel TV status checks (concurrency cap 8) for startup/refresh, with timing logs to compare against sequential mode.(this is from web app logic: In your app, TV checks are batched with a concurrency limit.
+- Add alarm/notification when an agent goes offline (visual alert + toast, with timestamp).
+- Add offline-agent email alert via backend (SMTP/provider API) with per-agent debounce/rate limit.
 
-Concurrency cap is 8 (BULK_REFRESH_CONCURRENCY = 8).
-Used by refreshAllDevices() via runInBatches(...).
-Meaning: at most 8 TVs are tested at the same time during startup/“Refresh all”.
-If you had more TVs, remaining ones wait for next batch.)
+- Validate and test all available commands from `python-samsung-mdc` (`https://pypi.org/project/python-samsung-mdc/`) and confirm mapping/support in the app.

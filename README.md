@@ -60,8 +60,12 @@ Each saved device keeps:
 - Saved devices manager (load/apply/save/delete)
 - Core controls (status, power, volume, brightness, mute, input)
 - MDC CLI commands (manual GET/SET)
-- Command Log
+- Output console with hide/show toggle
+- Command Log with hide/show toggle
 - Explore Agents page with agent-to-TV drill-down
+- Timestamp Monitor page (`last online`, `offline since`, `last check`)
+- Toast notifications with consistent display duration (4000 ms)
+- Controlled parallel device status refresh (`BULK_REFRESH_CONCURRENCY = 8`) for startup/Refresh All
 
 ## Prerequisites
 
@@ -139,3 +143,17 @@ VITE_CLOUD_API_KEY=replace-with-strong-random-secret
 ## Next tasks
 
 See [TODO.md](TODO.md).
+
+## GitHub Actions build for other PCs
+
+- Use the Windows installer artifacts from Actions/Release:
+  - `bundle/nsis/*.exe` (recommended)
+  - `bundle/msi/*.msi`
+- These installer artifacts include bundled runtime resources required by the desktop app.
+- The CI pipeline builds `tauri-app/py/bridge_runtime/bridge.exe` and runs a smoke test (`cli_catalog`) before packaging.
+- CI also regenerates `tauri-app/src/cli_catalog.json` during build, so the CLI command dropdown fallback stays available offline.
+
+### Recommendation
+
+- For end users on different PCs, install using NSIS/MSI from Release.
+- Avoid using the standalone portable exe as the primary distribution format if you need guaranteed full functionality.

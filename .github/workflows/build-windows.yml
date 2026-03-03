@@ -43,6 +43,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pyinstaller
+          python tauri-app/py/export_cli_catalog.py
           rm -rf tauri-app/py/build tauri-app/py/dist
           python -m PyInstaller \
             --noconfirm \
@@ -54,6 +55,24 @@ jobs:
             tauri-app/py/bridge.py
           mkdir -p tauri-app/py/bridge_runtime
           cp tauri-app/py/dist/bridge.exe tauri-app/py/bridge_runtime/bridge.exe
+
+      - name: Verify bundled bridge runtime
+        shell: bash
+        run: |
+          tauri-app/py/bridge_runtime/bridge.exe cli_catalog '{}' > tauri-app/py/bridge_runtime/bridge_smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          smoke_file = Path('tauri-app/py/bridge_runtime/bridge_smoke.json')
+          payload = json.loads(smoke_file.read_text(encoding='utf-8'))
+          if not payload.get('ok'):
+              raise SystemExit(f"bridge smoke failed: {payload}")
+          commands = payload.get('data', {}).get('commands', [])
+          if not isinstance(commands, list) or len(commands) == 0:
+              raise SystemExit('bridge smoke failed: empty command catalog')
+          print(f"bridge smoke ok, commands={len(commands)}")
+          PY
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

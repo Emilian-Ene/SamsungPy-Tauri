@@ -182,9 +182,35 @@ body {
 
 .page-nav-right {
   display: flex;
+  align-items: center;
   justify-content: end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.controlled-device-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid #22314a;
+  background: #0b1422;
+  color: #93a7c8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.controlled-device-icon {
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.controlled-device-pill strong {
+  color: #f3f8ff;
+  font-weight: 700;
 }
 
 .page-tab {
@@ -469,6 +495,15 @@ button.btn-error {
   margin-bottom: 14px;
 }
 
+#pageConnection .grid input,
+#pageConnection .grid select,
+#pageConnection .connection-actions button {
+  box-sizing: border-box;
+  height: 34px;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
 .connection-action-end {
   margin-left: auto;
 }
@@ -493,7 +528,16 @@ button.btn-error {
 .saved-device-toolbar input,
 .saved-device-toolbar select,
 .saved-device-toolbar button {
-  min-height: 38px;
+  box-sizing: border-box;
+  height: 34px;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+#savedSearch {
+  box-sizing: border-box;
+  height: 34px;
+  min-height: 34px;
 }
 
 .saved-device-list {
@@ -769,41 +813,42 @@ button.saved-sort-btn:active:not(:disabled) {
 }
 
 .notyf {
-  padding: 14px;
+  padding: 12px;
 }
 
 .notyf__toast {
-  border-radius: 10px;
-  border: 1px solid #2a3b59;
-  min-width: 280px;
-  max-width: 420px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+  border-radius: 12px;
+  border: 1px solid #27354d;
+  min-width: 260px;
+  max-width: 380px;
+  box-shadow: 0 12px 28px rgba(2, 8, 18, 0.48);
+  overflow: hidden;
 }
 
 .notyf__wrapper {
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 .notyf__message {
-  font-size: 13px;
-  line-height: 1.35;
-  color: #f3f4f6;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #e6f0ff;
 }
 
 .notyf__dismiss-btn {
-  opacity: 0.85;
+  opacity: 0.72;
 }
 
 .notyf__toast.toast-info {
-  border-color: #2563eb;
+  border-left: 4px solid #2563eb;
 }
 
 .notyf__toast.toast-success {
-  border-color: #16a34a;
+  border-left: 4px solid #16a34a;
 }
 
 .notyf__toast.toast-error {
-  border-color: #dc2626;
+  border-left: 4px solid #dc2626;
 }
 
 @media (max-width: 860px) {

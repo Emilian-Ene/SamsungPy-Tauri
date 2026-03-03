@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Notyf } from 'notyf';
 import 'notyf/notyf.min.css';
+import cliCatalogFallback from './cli_catalog.json';
 
 const $ = (id) => document.getElementById(id);
 
@@ -37,6 +38,13 @@ let monitorSortBy = 'name';
 let monitorSortDirection = 'asc';
 let agentsSortDirection = 'asc';
 let selectedExploreAgentId = '';
+let connectionPanelHidden = true;
+let actionsPanelHidden = true;
+let cliCommandsPanelHidden = true;
+let outputConsoleHidden = true;
+let latestOutputConsoleText = '';
+let commandLogHidden = true;
+let latestCommandLogText = '';
 
 try {
   const rawChecked = localStorage.getItem(WEB_CHECKED_DEVICES_KEY);
@@ -77,24 +85,24 @@ try {
 }
 
 const notyf = new Notyf({
-  duration: 2600,
+  duration: 4000,
   position: { x: 'right', y: 'top' },
-  dismissible: true,
+  dismissible: false,
   ripple: false,
   types: [
     {
       type: 'info',
-      background: '#1f2937',
+      background: '#0f1a2c',
       className: 'toast-info',
     },
     {
       type: 'success',
-      background: '#1f2937',
+      background: '#0f1a2c',
       className: 'toast-success',
     },
     {
       type: 'error',
-      background: '#1f2937',
+      background: '#0f1a2c',
       className: 'toast-error',
     },
   ],
@@ -125,6 +133,34 @@ const WRITE_ACTIONS = new Set([
   'cli_set',
 ]);
 const TIMER_INDEXED_COMMANDS = new Set(['timer_13', 'timer_15']);
+const BULK_REFRESH_CONCURRENCY = 8;
+
+async function runInBatches(items, concurrency, worker) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) {
+    return [];
+  }
+
+  const maxConcurrency = Math.max(1, Number(concurrency) || 1);
+  const workerCount = Math.min(maxConcurrency, list.length);
+  const results = new Array(list.length);
+  let cursor = 0;
+
+  async function runWorker() {
+    while (true) {
+      const currentIndex = cursor;
+      cursor += 1;
+      if (currentIndex >= list.length) {
+        return;
+      }
+      results[currentIndex] = await worker(list[currentIndex], currentIndex);
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+
+  return results;
+}
 
 function persistDeviceSelectionState() {
   if (selectedSavedDeviceIp) {
@@ -164,13 +200,18 @@ function nowTag() {
 
 function logLine(message) {
   const logText = `[${nowTag()}] ${message}\n`;
+  latestCommandLogText += logText;
   const targets = ['commandLog'];
   for (const targetId of targets) {
     const box = $(targetId);
     if (!box) {
       continue;
     }
-    box.textContent += logText;
+    if (targetId === 'commandLog' && commandLogHidden) {
+      box.textContent = '';
+      continue;
+    }
+    box.textContent = latestCommandLogText;
     box.scrollTop = box.scrollHeight;
   }
 }
@@ -181,6 +222,9 @@ function clearLog(logId) {
     return { ok: false, error: `Log box not found: ${logId}` };
   }
 
+  if (logId === 'commandLog') {
+    latestCommandLogText = '';
+  }
   box.textContent = '';
   return { ok: true, message: 'log cleared' };
 }
@@ -191,7 +235,11 @@ function saveLog(logId, filenamePrefix) {
     return { ok: false, error: `Log box not found: ${logId}` };
   }
 
-  const text = String(box.textContent || '').trim();
+  const textSource =
+    logId === 'commandLog'
+      ? latestCommandLogText
+      : String(box.textContent || '');
+  const text = String(textSource || '').trim();
   if (!text) {
     return { ok: false, error: 'Log is empty' };
   }
@@ -445,6 +493,7 @@ function setConnectionFields(device) {
   if (zoneInput) zoneInput.value = device.zone ?? '';
   if (areaInput) areaInput.value = device.area ?? '';
   if (descriptionInput) descriptionInput.value = device.description ?? '';
+  updateControlledDeviceHeader();
 }
 
 function sanitizeAgentIdValue(value) {
@@ -494,6 +543,43 @@ function getSavedDeviceName(device) {
   }
 
   return 'Unnamed Screen';
+}
+
+function updateControlledDeviceHeader() {
+  const badge = $('controlledDeviceBadge');
+  const nameTarget = $('controlledDeviceName');
+  if (!badge || !nameTarget) {
+    return;
+  }
+
+  const selectedIp = String(selectedSavedDeviceIp || '').trim();
+  const selectedDevice = selectedIp
+    ? savedDevices.find((item) => getSavedDeviceIp(item) === selectedIp)
+    : null;
+
+  if (selectedDevice) {
+    const name = getSavedDeviceName(selectedDevice);
+    nameTarget.textContent = name;
+    badge.title = `Currently controlled device: ${name} (${selectedIp})`;
+    return;
+  }
+
+  const manualName = String($('deviceName')?.value || '').trim();
+  if (manualName) {
+    nameTarget.textContent = manualName;
+    badge.title = `Currently controlled device: ${manualName}`;
+    return;
+  }
+
+  const manualIp = String($('ip')?.value || '').trim();
+  if (manualIp) {
+    nameTarget.textContent = manualIp;
+    badge.title = `Currently controlled device IP: ${manualIp}`;
+    return;
+  }
+
+  nameTarget.textContent = 'None';
+  badge.title = 'Currently controlled device';
 }
 
 function protocolLabelForList(protocol) {
@@ -1181,68 +1267,73 @@ async function refreshAllSavedDeviceStatuses() {
     return { ok: false, error: 'No devices to refresh' };
   }
 
-  const previouslySelectedIp = selectedSavedDeviceIp;
-  let online = 0;
-  let offline = 0;
-  let checking = 0;
-  let unknown = 0;
+  const refreshTargets = [];
 
   for (const device of savedDevices) {
     const deviceIp = getSavedDeviceIp(device);
     if (!deviceIp) {
       continue;
     }
+    refreshTargets.push({ device, deviceIp });
+  }
 
-    const deviceAgentId = getDeviceAgentId(device);
-    if (deviceAgentId && isAgentKnownOffline(deviceAgentId)) {
-      setSavedDeviceRuntime(deviceIp, {
-        status: 'offline',
-        lastChecked: formatUiTimestamp(),
-      });
-      offline += 1;
-      continue;
-    }
+  if (!refreshTargets.length) {
+    return { ok: false, error: 'No devices with valid IP to refresh' };
+  }
 
-    setSavedDeviceRuntime(deviceIp, {
+  const timestamp = formatUiTimestamp();
+  for (const target of refreshTargets) {
+    setSavedDeviceRuntime(target.deviceIp, {
       status: 'checking',
-      lastChecked: formatUiTimestamp(),
+      lastChecked: timestamp,
     });
-    renderSavedDeviceList(selectedSavedDeviceIp);
+  }
+  renderSavedDeviceList(selectedSavedDeviceIp);
 
-    const selectResult = applySelectedDevice(deviceIp);
-    if (!selectResult.ok) {
-      setSavedDeviceRuntime(deviceIp, {
-        status: 'unknown',
-        lastChecked: formatUiTimestamp(),
-      });
-      unknown += 1;
-      continue;
-    }
+  const statuses = await runInBatches(
+    refreshTargets,
+    BULK_REFRESH_CONCURRENCY,
+    async ({ device, deviceIp }) => {
+      try {
+        const result = await runSingleTvHeartbeat(device);
+        const status = normalizeListStatus(
+          result?.status ?? deriveStatusFromTestResult(result),
+        );
+        setSavedDeviceRuntime(deviceIp, {
+          status,
+          lastChecked: formatUiTimestamp(),
+        });
+        return status;
+      } catch (_error) {
+        setSavedDeviceRuntime(deviceIp, {
+          status: 'unknown',
+          lastChecked: formatUiTimestamp(),
+        });
+        return 'unknown';
+      }
+    },
+  );
 
-    const result = await runConnectionTest();
-    const status = deriveStatusFromTestResult(result);
-    setSavedDeviceRuntime(deviceIp, {
-      status,
-      lastChecked: formatUiTimestamp(),
-    });
+  let online = 0;
+  let offline = 0;
+  let checking = 0;
+  let unknown = 0;
 
-    if (status === 'online') {
+  for (const statusValue of statuses) {
+    if (statusValue === 'online') {
       online += 1;
-    } else if (status === 'offline') {
+    } else if (statusValue === 'offline') {
       offline += 1;
-    } else if (status === 'checking') {
+    } else if (statusValue === 'checking') {
       checking += 1;
     } else {
       unknown += 1;
     }
   }
 
-  if (previouslySelectedIp) {
-    applySelectedDevice(previouslySelectedIp);
-  }
   renderSavedDeviceList(selectedSavedDeviceIp);
 
-  const checked = online + offline + checking + unknown;
+  const checked = statuses.length;
   return {
     ok: true,
     message: `refreshed ${checked} devices (${online} online, ${offline} offline, ${checking} checking, ${unknown} unknown)`,
@@ -2033,6 +2124,7 @@ function renderSavedDevices(list, selectedIp = '') {
   renderSavedDeviceList(selectedSavedDeviceIp);
   renderExploreAgents();
   renderTimestampMonitorTable();
+  updateControlledDeviceHeader();
 }
 
 function csvEscape(value) {
@@ -2491,10 +2583,15 @@ function buildHumanQuickMessage(payload) {
 
 function renderOutput(payload) {
   const outputText = JSON.stringify(payload, null, 2);
+  latestOutputConsoleText = outputText;
   const targets = ['output'];
   for (const targetId of targets) {
     const box = $(targetId);
     if (!box) {
+      continue;
+    }
+    if (targetId === 'output' && outputConsoleHidden) {
+      box.textContent = '';
       continue;
     }
     box.textContent = outputText;
@@ -2539,6 +2636,151 @@ function renderOutput(payload) {
     }
     setQuickOutputLine(summary, payload?.healthState || null);
   }
+}
+
+function applyOutputVisibilityState() {
+  const outputBox = $('output');
+  if (outputBox) {
+    outputBox.hidden = outputConsoleHidden;
+    if (!outputConsoleHidden) {
+      outputBox.textContent = latestOutputConsoleText;
+    }
+  }
+
+  const toggleButton = $('btnToggleOutputVisibility');
+  if (!toggleButton) {
+    return;
+  }
+
+  toggleButton.textContent = '👁';
+  toggleButton.setAttribute(
+    'aria-pressed',
+    outputConsoleHidden ? 'true' : 'false',
+  );
+  toggleButton.setAttribute(
+    'aria-label',
+    outputConsoleHidden ? 'Show output text' : 'Hide output text',
+  );
+}
+
+function toggleOutputVisibility() {
+  outputConsoleHidden = !outputConsoleHidden;
+  applyOutputVisibilityState();
+}
+
+function applyCommandLogVisibilityState() {
+  const commandLogBox = $('commandLog');
+  if (commandLogBox) {
+    commandLogBox.hidden = commandLogHidden;
+    if (!commandLogHidden) {
+      commandLogBox.textContent = latestCommandLogText;
+    }
+  }
+
+  const toggleButton = $('btnToggleCommandLogVisibility');
+  if (!toggleButton) {
+    return;
+  }
+
+  toggleButton.textContent = '👁';
+  toggleButton.setAttribute(
+    'aria-pressed',
+    commandLogHidden ? 'true' : 'false',
+  );
+  toggleButton.setAttribute(
+    'aria-label',
+    commandLogHidden ? 'Show command log text' : 'Hide command log text',
+  );
+}
+
+function toggleCommandLogVisibility() {
+  commandLogHidden = !commandLogHidden;
+  applyCommandLogVisibilityState();
+}
+
+function applyConnectionVisibilityState() {
+  const panelBody = $('connectionPanelBody');
+  if (panelBody) {
+    panelBody.hidden = connectionPanelHidden;
+  }
+
+  const toggleButton = $('btnToggleConnectionVisibility');
+  if (!toggleButton) {
+    return;
+  }
+
+  toggleButton.textContent = '👁';
+  toggleButton.setAttribute(
+    'aria-pressed',
+    connectionPanelHidden ? 'true' : 'false',
+  );
+  toggleButton.setAttribute(
+    'aria-label',
+    connectionPanelHidden
+      ? 'Show connection section'
+      : 'Hide connection section',
+  );
+}
+
+function toggleConnectionVisibility() {
+  connectionPanelHidden = !connectionPanelHidden;
+  applyConnectionVisibilityState();
+}
+
+function applyActionsVisibilityState() {
+  const panelBody = $('actionsPanelBody');
+  if (panelBody) {
+    panelBody.hidden = actionsPanelHidden;
+  }
+
+  const toggleButton = $('btnToggleActionsVisibility');
+  if (!toggleButton) {
+    return;
+  }
+
+  toggleButton.textContent = '👁';
+  toggleButton.setAttribute(
+    'aria-pressed',
+    actionsPanelHidden ? 'true' : 'false',
+  );
+  toggleButton.setAttribute(
+    'aria-label',
+    actionsPanelHidden ? 'Show actions section' : 'Hide actions section',
+  );
+}
+
+function toggleActionsVisibility() {
+  actionsPanelHidden = !actionsPanelHidden;
+  applyActionsVisibilityState();
+}
+
+function applyCliCommandsVisibilityState() {
+  const panelBody = $('cliCommandsPanelBody');
+  if (panelBody) {
+    panelBody.hidden = cliCommandsPanelHidden;
+  }
+
+  const toggleButton = $('btnToggleCliCommandsVisibility');
+  if (!toggleButton) {
+    return;
+  }
+
+  toggleButton.textContent = '👁';
+  toggleButton.setAttribute(
+    'aria-pressed',
+    cliCommandsPanelHidden ? 'true' : 'false',
+  );
+  toggleButton.setAttribute(
+    'aria-label',
+    cliCommandsPanelHidden
+      ? 'Show CLI commands section'
+      : 'Hide CLI commands section',
+  );
+}
+
+function toggleCliCommandsVisibility() {
+  cliCommandsPanelHidden = !cliCommandsPanelHidden;
+  applyCliCommandsVisibilityState();
 }
 
 function backfillActionEchoData(result, action, payload) {
@@ -3325,6 +3567,9 @@ function renderCliArgRows(commandName) {
 
 function populateCliCommands() {
   const select = $('cliCommand');
+  if (!select) {
+    return;
+  }
   select.innerHTML = '';
 
   for (const command of cliCommands) {
@@ -3337,20 +3582,56 @@ function populateCliCommands() {
   if (cliCommands.length > 0) {
     select.value = cliCommands[0].name;
     renderCliArgRows(cliCommands[0].name);
+    return;
   }
+
+  renderCliArgRows('');
+}
+
+function normalizeCliCatalogCommands(commands) {
+  if (!Array.isArray(commands)) {
+    return [];
+  }
+
+  return commands
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const resolvedName =
+        (typeof item.name === 'string' && item.name.trim()) ||
+        (typeof item.id === 'string' && item.id.trim()) ||
+        (typeof item.command === 'string' && item.command.trim()) ||
+        '';
+
+      if (!resolvedName) {
+        return null;
+      }
+
+      return {
+        ...item,
+        name: resolvedName,
+        fields: Array.isArray(item.fields) ? item.fields : [],
+      };
+    })
+    .filter(Boolean);
 }
 
 async function loadCliCatalog() {
   const applyCommands = (commands) => {
-    if (!Array.isArray(commands)) {
+    const normalizedCommands = normalizeCliCatalogCommands(commands);
+    if (normalizedCommands.length === 0) {
       logLine('CLI catalog load failed: invalid response format');
       return false;
     }
 
-    cliCommands = commands;
-    cliCommandMap = new Map(commands.map((item) => [item.name, item]));
+    cliCommands = normalizedCommands;
+    cliCommandMap = new Map(
+      normalizedCommands.map((item) => [item.name, item]),
+    );
     populateCliCommands();
-    logLine(`Loaded ${commands.length} CLI commands`);
+    logLine(`Loaded ${normalizedCommands.length} CLI commands`);
     return true;
   };
 
@@ -3366,24 +3647,16 @@ async function loadCliCatalog() {
         return;
       }
     } catch (_error) {
-      logLine('CLI schema source: fallback file (Tauri bridge unavailable)');
+      logLine('CLI schema source: fallback (Tauri bridge unavailable)');
     }
   }
 
-  try {
-    const response = await fetch(`/src/cli_catalog.json?t=${Date.now()}`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const payload = await response.json();
-    if (applyCommands(payload?.commands)) {
-      logLine('CLI schema source: web fallback file src/cli_catalog.json');
-      return;
-    }
-  } catch (error) {
-    logLine(`Web CLI catalog fallback failed: ${String(error)}`);
-    logLine('Run: py py/export_cli_catalog.py (inside tauri-app)');
+  if (applyCommands(cliCatalogFallback?.commands)) {
+    logLine('CLI schema source: bundled fallback import src/cli_catalog.json');
+    return;
   }
+
+  logLine('Run: py py/export_cli_catalog.py (inside tauri-app)');
 }
 
 function switchWorkflowPage(pageName) {
@@ -3935,6 +4208,7 @@ function applySelectedDevice(selectedIpOverride) {
     selectedSavedDeviceIp = '';
     persistDeviceSelectionState();
     renderSavedDeviceList('');
+    updateControlledDeviceHeader();
     logLine('Manual entry mode active');
     return { ok: false, error: 'No selected device' };
   }
@@ -3946,6 +4220,7 @@ function applySelectedDevice(selectedIpOverride) {
     selectedSavedDeviceIp = '';
     persistDeviceSelectionState();
     renderSavedDeviceList('');
+    updateControlledDeviceHeader();
     logLine(`Selected device ${selectedIp} not found`);
     return { ok: false, error: `Selected device ${selectedIp} not found` };
   }
@@ -3954,6 +4229,7 @@ function applySelectedDevice(selectedIpOverride) {
   persistDeviceSelectionState();
   setConnectionFields(selected);
   renderSavedDeviceList(selectedIp);
+  updateControlledDeviceHeader();
   logLine(`Applied saved device ${selectedIp}`);
   return { ok: true, message: `applied ${selectedIp}`, ip: selectedIp };
 }
@@ -4204,12 +4480,41 @@ bindButtonAction('btnCliGet', runCliGet);
 bindButtonAction('btnCliSet', runCliSet);
 bindButtonAction('btnClearLog', () => clearLog('commandLog'));
 bindButtonAction('btnSaveLog', () => saveLog('commandLog', 'command_log'));
+$('btnToggleOutputVisibility')?.addEventListener(
+  'click',
+  toggleOutputVisibility,
+);
+$('btnToggleCommandLogVisibility')?.addEventListener(
+  'click',
+  toggleCommandLogVisibility,
+);
+$('btnToggleConnectionVisibility')?.addEventListener(
+  'click',
+  toggleConnectionVisibility,
+);
+$('btnToggleActionsVisibility')?.addEventListener(
+  'click',
+  toggleActionsVisibility,
+);
+$('btnToggleCliCommandsVisibility')?.addEventListener(
+  'click',
+  toggleCliCommandsVisibility,
+);
 bindButtonAction('btnRefreshTimestampMonitor', () =>
   refreshTimestampMonitorOnce({ silent: false }),
 );
 $('cliCommand').addEventListener('change', (event) =>
   renderCliArgRows(event.target.value),
 );
+$('deviceName')?.addEventListener('input', updateControlledDeviceHeader);
+$('ip')?.addEventListener('input', updateControlledDeviceHeader);
+
+applyConnectionVisibilityState();
+applyActionsVisibilityState();
+applyCliCommandsVisibilityState();
+applyOutputVisibilityState();
+applyCommandLogVisibilityState();
+updateControlledDeviceHeader();
 
 initWorkflowNavigation();
 initSavedDeviceToolbar();
